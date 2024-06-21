@@ -78,6 +78,7 @@ print(heat_component(0.34, 0.5, 0.5, 1, 2))
 
 #["index", "molecule", "weight", "x", "y", "z"]
 
+#preprocess the csv file into processed arrays
 def csv_preproccessor(filename):
     data = pd.read_csv(filename)
     index_array = data['index']
@@ -88,6 +89,7 @@ def csv_preproccessor(filename):
     z_array = data['z']
     return index_array, molecule_array, weight_array, x_array, y_array, z_array
 
+#constructs empty
 def construct_tensor(index_array, molecule_array, weight_array, x_array, y_array, z_array, DENSITY):
     applied_molecules = []
     
