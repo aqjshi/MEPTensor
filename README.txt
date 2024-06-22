@@ -3,8 +3,21 @@ Running Tensor.py
 
 python tensor.py [FILENAME] [DENSITY] [PRECISION]
 Example
+
+CSV PARSER
 python tensor.py xyz.csv 64 2
 
+NPY PARSER
+
+
+Testing param: python tensor.py qm9_filtered.npy 64 2
+Scientific param: python tensor.py qm9_filtered.npy 729 4
+
+
+
+#how to visulaize nn
+PyTorchViz
+visualization package. 38
 
 CITATIONS:
 
