@@ -10,21 +10,27 @@ import math
 from decimal import Decimal
 import numpy as np
 import argparse
+from scipy.sparse import csr_matrix
 
 from helper import parse_xyz_string, npy_preprocessor
 
 #shell args python tensor.py [FILENAME] [DENSITY] [PRECISION]
 
-parser = argparse.ArgumentParser(description="Visualize a 3D tensor as a heat tensor.")
-parser.add_argument('filename', type=str, help='The CSV file to process')
-parser.add_argument('density', type=int, help='The density of the tensor')
-parser.add_argument('precision', type=int, help='The precision for visualization')
+# parser = argparse.ArgumentParser(description="Visualize a 3D tensor as a heat tensor.")
+# parser.add_argument('filename', type=str, help='The CSV file to process')
+# parser.add_argument('density', type=int, help='The density of the tensor')
+# parser.add_argument('precision', type=int, help='The precision for visualization')
 
-args = parser.parse_args()
+# args = parser.parse_args()
 
-FILENAME = args.filename
-DENSITY = args.density
-PRECISION = args.precision
+# FILENAME = args.filename
+# DENSITY = args.density
+# PRECISION = args.precision
+
+#if null param
+FILENAME = "qm9_filtered.npy"
+DENSITY = 64
+PRECISION = 2
 
 
 #scale number into the highest precision, return the number, the magnitude, and the precision
@@ -80,7 +86,7 @@ def heat_component(tensor_x, tensor_y, tensor_z, tensor_weight, PRECISION):
     return tensor
 
 #testing the heat component
-print(heat_component(0.34, 0.5, 0.5, 1, 2))
+# print(heat_component(0.34, 0.5, 0.5, 1, 2))
 
 
 # #version 1
@@ -104,7 +110,6 @@ def construct_tensor(molecule_array, weight_array, x_array, y_array, z_array, DE
     
     #round to nearest int 
     cuberoot_density = round(DENSITY ** (1/3))
-    print(cuberoot_density)
     tensor = np.zeros((cuberoot_density, cuberoot_density, cuberoot_density))
     
     
@@ -190,115 +195,106 @@ def element_into_weight(molecule_array):
 
 #tensor dataset is going to output into 3 different temp txt files, index.txt, tensor.txt, and rotation.txt
 #returns index_array, tensor_array, formula_array, rotation_array
+# def tensor_dataset(index_array, xyz_array, rotation_array):
+#     #write the indexes first
+#     with open('index.txt', 'w') as f:
+#         for index in index_array:
+#             f.write(str(index) + '\n')
+#         # print(index_array) #output "079782 005049"
+#         f.close()
+#     #write the rotations
+#     with open('rotation.txt', 'w') as f:
+#         for rotation in rotation_array:
+#             #write into file from join the array into a string separated by space
+#             for i in range(len(rotation)):
+#                 f.write(str(rotation[i]) + ' ')
+#             f.write('\n')
+#             # f.write(str(rotation) + '\n')
+#         # print(rotation_array) #output "-0.0, -0.0, -0.0"
+#         f.close()
+#     #write the tensors
+#     tensor_array = []
+#     formula_array = []
+#     for xyz in zip(xyz_array):
+#         x_array = []
+#         y_array = []
+#         z_array = []
+#         ##2d array of strings
+#         molecule_array = []
+        
+#         matrix, molecules = parse_xyz_string(xyz)
+        
+#         for row, molecule in zip(matrix, molecules):
+#             x_array.append(row[0])
+#             y_array.append(row[1])
+#             z_array.append(row[2])
+#             molecule_array.append(molecule)
+#         weight_array = element_into_weight(molecule_array)  
+#         tensor, applied_molecules = construct_tensor(molecules, weight_array, x_array, y_array, z_array, DENSITY)
+#         joined_molecules = ' '.join(applied_molecules)
+#         tensor_array.append(tensor)
+#         formula_array.append(joined_molecules)
+#     #write the tensor
+#     with open('tensor.txt', 'w') as f:
+#         for tensor in tensor_array:
+#             for matrix in tensor:
+#                 for row in matrix:
+#                     f.write(' '.join(map(str, row))) #output "0.0 0.0 0.0 0.050.0 0.01 0.08 0.00.0 0.36 1.49 0.00.0 0.05 0.13 0.00.0 0.0 0.59 2.01.02 2.0 2.37 3.630.21 2.18 8.92 0.010.0 0.0 3.2 4.770.0 2.68 6.42 0.91.1099999999999999 5.35 2.74 3.250.63 3.46 0.01 7.380.02 0.12 3.2199999999999998 4.790.0 0.71 1.59 0.00.17 0.22 7.02 0.83000000000000011.72 8.290000000000001 3.4 2.871.97 6.159999999999999 0.01 0.0"
+#             f.write('\n')
+#             # f.write(str(tensor) + '\n')
+#         # print(tensor_array) 
+#         f.close()
+#     with open('formula.txt', 'w') as f:
+#         for formula in formula_array:
+#             f.write(str(formula) + '\n') #output "O C C C O C C N C H H H H H H H"
+#         f.close()
+    
+#     return tensor_array, formula_array
+    
+#csv master method
 def tensor_dataset(index_array, xyz_array, rotation_array):
-    #write the indexes first
-    with open('index.txt', 'w') as f:
-        for index in index_array:
-            f.write(str(index) + '\n')
-        # print(index_array) #output "['079782' '005049']"
-        f.close()
-    #write the rotations
-    with open('rotation.txt', 'w') as f:
-        for rotation in rotation_array:
-            f.write(str(rotation) + '\n')
-        # print(rotation_array) #output "[list([-0.0, -0.0, -0.0]) list([-14.99, -12.5, -4979.91])]""
-        f.close()
-    #write the tensors
     tensor_array = []
     formula_array = []
-    for xyz in zip(xyz_array):
+
+    for xyz in xyz_array:
         x_array = []
         y_array = []
         z_array = []
-        ##2d array of strings
         molecule_array = []
-        
+
         matrix, molecules = parse_xyz_string(xyz)
-        
+
         for row, molecule in zip(matrix, molecules):
             x_array.append(row[0])
             y_array.append(row[1])
             z_array.append(row[2])
             molecule_array.append(molecule)
-        weight_array = element_into_weight(molecule_array)  
+
+        weight_array = element_into_weight(molecule_array)
         tensor, applied_molecules = construct_tensor(molecules, weight_array, x_array, y_array, z_array, DENSITY)
-        print("hello")
-        print(applied_molecules)
         joined_molecules = ' '.join(applied_molecules)
-        print(joined_molecules)
         tensor_array.append(tensor)
         formula_array.append(joined_molecules)
-    #write the tensor
-    with open('tensor.txt', 'w') as f:
-        for tensor, formula in zip(tensor_array, formula_array):
-            f.write("$tensor\n")
-            f.write(str(tensor) + '\n')
-            f.write("^molecules\n")
-            f.write(str(formula) + '\n')
-        # print(tensor_array) 
-        '''
-        SAMPLE OUTPUT
-        array([[[0.04, 0.  , 0.  , 0.  ],
-        [1.3 , 1.38, 0.  , 0.  ],
-        [0.46, 0.74, 0.  , 0.  ],
-        [0.15, 0.02, 0.  , 0.  ]],
 
-       [[0.  , 0.  , 0.82, 1.23],
-        [1.23, 4.99, 1.46, 2.06],
-        [8.69, 3.57, 0.03, 0.  ],
-        [4.03, 0.85, 0.19, 0.64]],
+    with open('tensor_dataset.csv', 'w', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(['index', 'formula', 'tensor', 'rotation0', 'rotation1', 'rotation2'])
 
-       [[0.  , 0.  , 1.67, 2.36],
-        [0.  , 0.  , 3.15, 4.43],
-        [0.13, 1.29, 0.49, 0.  ],
-        [0.09, 6.98, 2.95, 3.58]],
+        for i in range(len(index_array)):
+            index = index_array[i]
+            formula = formula_array[i]
+            tensor = ' '.join(' '.join(map(str, row)) for matrix in tensor_array[i] for row in matrix)
+            rotation0 = rotation_array[i][0]
+            rotation1 = rotation_array[i][1]
+            rotation2 = rotation_array[i][2]
+            csvwriter.writerow([index, formula, tensor, rotation0, rotation1, rotation2])
 
-       [[0.  , 0.  , 1.22, 1.71],
-        [0.84, 4.51, 2.49, 3.49],
-        [7.11, 4.89, 0.  , 0.  ],
-        [4.51, 1.11, 0.  , 0.01]]])]
-        '''
-        # print(formula_array) #output ['O C C C O C C N C H H H H H H H', 'N C N C C N C N H H H H']
-        f.close()
     return tensor_array, formula_array
-    
-
-# index_array, molecule_array, weight_array, x_array, y_array, z_array = csv_preproccessor(FILENAME)
-#import from another python file called helper.py
-
-
 
 #npy_preproccessor returns index_array, xyz_array, rotation_array
 index_array, xyz_array, rotation_array = npy_preprocessor(FILENAME)
 
 tensor_array, formula_array = tensor_dataset(index_array, xyz_array, rotation_array)
 
+#train_X is tensor_array, formula_array, train_Y is rotation_array
 
-# tensor, applied_molecules = construct_tensor(index_array, molecule_array, weight_array, x_array, y_array, z_array, DENSITY)
-
-# print (tensor)
-# print (applied_molecules)
-
-
-# import matplotlib.pyplot as plt
-# from mpl_toolkits.mplot3d import Axes3D
-
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-
-# # Assuming tensor is a 3D numpy array
-# x, y, z = np.indices(tensor.shape)
-
-# # Normalize tensor values for coloring
-# norm_tensor = tensor / tensor.max()
-
-# # Plot
-# ax.scatter(x, y, z, c=norm_tensor.flatten(), cmap='viridis')
-
-# ax.set_xlabel('X')
-# ax.set_ylabel('Y')
-# ax.set_zlabel('Z')
-# plt.show()
-
-# #close plt
-# plt.close()
