@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Conv2D, Flatten, MaxPooling2D
+from tensorflow.keras.layers import Dense, Conv3D, Flatten, MaxPooling3D
 from tensorflow.keras.utils import to_categorical
 from argparse import ArgumentParser
 
@@ -63,8 +63,8 @@ y_test = to_categorical(y_test, num_classes=2)
 
 # Define the CNN model
 model = Sequential([
-    Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(cuberoot_density, cuberoot_density, cuberoot_density, 1)),
-    MaxPooling2D(pool_size=(2, 2)),
+    Conv3D(32, kernel_size=(3, 3, 3), activation='relu', input_shape=(cuberoot_density, cuberoot_density, cuberoot_density, 1)),
+    MaxPooling3D(pool_size=(2, 2, 2)),
     Flatten(),
     Dense(hidden_layer_size, activation='relu'),
     Dense(2, activation='softmax')
@@ -101,6 +101,7 @@ print("Accuracy: ", accuracy)
 print("Precision: ", precision)
 print("Recall: ", recall)
 print("F1 Score: ", f1)
+
 '''
 Running Tensor.py
 
