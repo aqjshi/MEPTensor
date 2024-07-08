@@ -85,6 +85,32 @@ def csv_preproccessor(filename):
     z_array = data['z']
     return index_array, molecule_array, weight_array, x_array, y_array, z_array
 
+def calculate_repulsion(tensor_range, tensor_position, molecules_xyz, molecules_weight):
+    def distance(point1, point2):
+        return np.linalg.norm(np.array(point1) - np.array(point2))
+
+    def electrostatic_potential(charge, distance):
+        k = 8.9875517873681764  # N m^2/C^2 (Coulomb's constant)
+        return k * charge / (distance * tensor_range)
+
+    total_potential = 0.0
+
+    for i in range(len(molecules_xyz)):
+        dist = distance(tensor_position, molecules_xyz[i])
+        if dist > 0:  # Avoid division by zero
+            potential = electrostatic_potential(molecules_weight[i], dist)
+            total_potential += potential
+
+    return total_potential
+
+def fill_tensor_repulsion(tensor, molecules_xyz, molecules_weight):
+    for i in range(tensor.shape[0]):
+        for j in range(tensor.shape[1]):
+            for k in range(tensor.shape[2]):
+                tensor_position = [i, j, k]
+                tensor[i, j, k] = calculate_repulsion(tensor.shape[0], tensor_position, molecules_xyz, molecules_weight)
+    return tensor
+
 #constructs empty
 def construct_tensor(molecule_array, weight_array, x_array, y_array, z_array, DENSITY, PRECISION):
     applied_molecules = []
@@ -164,58 +190,37 @@ def element_into_weight(molecule_array):
         weight_array.append(weight)
     return weight_array
 
-def calculate_repulsion(i, j, k, molecule_array, x_array, y_array, z_array, weight_array):
-    repulsion_energy = 0
-    R_point = np.array([i, j, k])
-    
-    for m, (x, y, z, weight) in enumerate(zip(x_array, y_array, z_array, weight_array)):
-        R_atom = np.array([x, y, z])
-        dist = np.linalg.norm(R_point - R_atom)
-        if dist != 0:
-            repulsion_energy += weight / dist
-            
-    return repulsion_energy
-
 #csv master method
 def tensor_dataset(index_array, xyz_array, rotation_array, DENSITY, PRECISION):
     tensor_array = []
     formula_array = []
-    # some of the xyz data is empty, cannot write by threads, need to do by
     index_str = '\n'.join(map(str, index_array))
     with open('index.txt', 'w') as f:
         f.write(index_str)
-    f.close()
+
     all_data = []
     for i in range(len(index_array)):
         xyz = xyz_array[i]
-        x_array = []
-        y_array = []
-        z_array = []
-        molecule_array = []
+        x_array, y_array, z_array, molecule_array = [], [], [], []
 
         matrix, molecules = parse_xyz_string(xyz)
-
         for row, molecule in zip(matrix, molecules):
             x_array.append(row[0])
             y_array.append(row[1])
             z_array.append(row[2])
             molecule_array.append(molecule)
+        
         weight_array = element_into_weight(molecule_array)
-        
-        # Calculate repulsion energy here before constraining into the tensor
-        repulsion_energy = []
-        for x, y, z, weight in zip(x_array, y_array, z_array, weight_array):
-            repulsion_energy.append(0.5 * (weight ** 2.4))
-        
-        tensor, applied_molecules = construct_tensor(molecules, repulsion_energy, x_array, y_array, z_array, DENSITY, PRECISION)
+        tensor, applied_molecules = construct_tensor(molecule_array, weight_array, x_array, y_array, z_array, DENSITY, PRECISION)
+        tensor = fill_tensor_repulsion(tensor, matrix, weight_array)
+
         joined_molecules = ' '.join(applied_molecules)
         tensor_str = ' '.join(' '.join(map(str, row)) for matrix in tensor for row in matrix)
-    
+
         all_data.append([index_array[i], joined_molecules, tensor_str, rotation_array[i][0], rotation_array[i][1], rotation_array[i][2]])
-        
         tensor_array.append(tensor)
         formula_array.append(joined_molecules)
-        
+    
     with open('small_tensor_dataset.csv', 'w', newline='') as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(['index', 'formula', 'tensor', 'rotation0', 'rotation1', 'rotation2'])
@@ -261,6 +266,8 @@ def tensor_dataset_v2(index_array, xyz_array, chiral_centers_array, rotation_arr
             molecule_array.append(molecule)
         weight_array = element_into_weight(molecule_array)
         tensor, applied_molecules = construct_tensor(molecules, weight_array, x_array, y_array, z_array, DENSITY, PRECISION)
+        tensor = fill_tensor_repulsion(tensor, matrix, weight_array)
+        
         tensor_str = ' '.join(' '.join(map(str, row)) for matrix in tensor for row in matrix)
         all_data.append([index_array[i], tensor_str, chiral_length, chiral0, rotation_array[i][0]])
         tensor_array.append(tensor)
@@ -332,6 +339,7 @@ def tensor_dataset_v3(index_array, xyz_array, chiral_centers_array, rotation_arr
             molecule_array.append(molecule)
         weight_array = element_into_weight(molecule_array)
         tensor, applied_molecules = construct_tensor(molecules, weight_array, x_array, y_array, z_array, DENSITY, PRECISION)
+        tensor = fill_tensor_repulsion(tensor, matrix, weight_array)
         tensor_str = ' '.join(' '.join(map(str, row)) for matrix in tensor for row in matrix)
         all_data.append([index_array[i], tensor_str, chiral0, chiral1, chiral2, chiral3, chiral4, chiral_length, rotation_array[i][0], rotation_array[i][1], rotation_array[i][2]])
         tensor_array.append(tensor)
