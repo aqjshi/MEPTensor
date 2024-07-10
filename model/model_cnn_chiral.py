@@ -12,9 +12,9 @@ from argparse import ArgumentParser
 def build_cnn_model(input_shape):
     model = Sequential([
         Conv3D(32, kernel_size=(3, 3, 3), activation='relu', input_shape=input_shape),
-        MaxPooling3D(pool_size=(2, 2, 2)),
+        MaxPooling3D(pool_size=(2, 2, 2), padding='same'),
         Conv3D(64, kernel_size=(3, 3, 3), activation='relu'),
-        MaxPooling3D(pool_size=(2, 2, 2)),
+        MaxPooling3D(pool_size=(2, 2, 2), padding='same'),
         Flatten(),
         Dense(128, activation='relu'),
         Dense(1, activation='sigmoid')
