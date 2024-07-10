@@ -1,0 +1,168 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from rdkit import Chem
+from rdkit.Chem import AllChem, Draw
+import argparse
+
+from wrapper import heat_component
+
+def tensor_parser(tensor_string, density):
+    tensor_values = []
+    values = list(map(float, tensor_string.split()))
+    idx = 0
+    for x in range(density):
+        for y in range(density):
+            for z in range(density):
+                tensor_values.append((x, y, z, values[idx]))
+                idx += 1
+    return tensor_values
+
+parser = argparse.ArgumentParser()
+parser.add_argument("index", help="The index of the molecule to visualize", type=int)
+parser.add_argument("density", help="The density of the cube (number of cubes per side)", type=int)
+args = parser.parse_args()
+
+# Load the CSV file for InChI data
+inchi_filename = "tensor_dataset_v3.csv"
+inchi_df = pd.read_csv(inchi_filename)
+
+# Print available columns for debugging
+print("Available columns in InChI dataset:", inchi_df.columns)
+
+# Extract the InChI string for the given index
+index = args.index
+inchi_string = inchi_df[inchi_df['index'] == index]['inchi'].values[0]
+
+tensor_string = inchi_df[inchi_df['index'] == index]['tensor_values'].values[0]
+
+# Convert InChI string to RDKit molecule
+molecule = Chem.MolFromInchi(inchi_string)
+
+# Check if the molecule is valid
+if molecule is None:
+    print(f"Invalid InChI string for index {index}")
+else:
+    # Add hydrogens to the molecule
+    molecule = Chem.AddHs(molecule)
+
+    # Generate 3D coordinates if they do not exist
+    if not molecule.GetNumConformers():
+        AllChem.EmbedMolecule(molecule, randomSeed=42)
+        AllChem.UFFOptimizeMolecule(molecule)
+
+    # Create 2D image
+    img_2d = Draw.MolToImage(molecule, size=(300, 300))
+
+    # Extract 3D coordinates
+    conf = molecule.GetConformer()
+    atom_coords = conf.GetPositions()
+    atom_types = [atom.GetSymbol() for atom in molecule.GetAtoms()]
+
+    # Center and scale atom coordinates
+    atom_coords -= atom_coords.mean(axis=0)
+    atom_coords /= atom_coords.max(axis=0).max()
+
+    # Generate coordinates for the 3D scatter plot and convert to float
+    x, y, z = np.meshgrid(np.arange(args.density), np.arange(args.density), np.arange(args.density), indexing='ij')
+    tensor_coords = np.stack([x.flatten(), y.flatten(), z.flatten()], axis=1).astype(np.float64)
+    tensor_coords -= tensor_coords.mean(axis=0)
+    tensor_coords /= tensor_coords.max(axis=0).max()
+
+    alpha_values = 0.8  # scale alpha between 0.1 and 1.0
+
+    # Adjust figure size and layout
+    fig = plt.figure(figsize=(50, 10))
+
+    # 2D Plot
+    ax1 = fig.add_subplot(151)
+    ax1.imshow(img_2d)
+    ax1.set_title(f'2D Structure for Index {index}')
+    ax1.axis('off')
+
+    # 3D Plot
+    ax2 = fig.add_subplot(152, projection='3d')
+    ax2.scatter(atom_coords[:, 0], atom_coords[:, 1], atom_coords[:, 2], c='b', s=100)
+
+    for i, atom_type in enumerate(atom_types):
+        ax2.text(atom_coords[i, 0], atom_coords[i, 1], atom_coords[i, 2], atom_type, fontsize=12, color='r')
+
+    ax2.set_title(f'3D Structure for Index {index}')
+    ax2.set_xlabel('X')
+    ax2.set_ylabel('Y')
+    ax2.set_zlabel('Z')
+    ax2.grid(False)
+
+    # 3D Estimated Stacked Heatmap from scatter plot with density
+    density_dim = args.density
+    estimated_heat_tensor = np.zeros((density_dim, density_dim, density_dim))
+
+    # Scale atom coordinates to fit the new density
+    scaled_atom_coords = (atom_coords + 1) * (density_dim / 2)
+
+    for coord in scaled_atom_coords:
+        heat_component(estimated_heat_tensor, coord[0], coord[1], coord[2], 1, density_dim)
+
+    # Print tensor values for graph 4
+    # print("Tensor values for graph 4 (x, y, z, value):")
+    # # Write tensor values to a CSV file
+    # with open('temp_values0.csv', 'w') as f:
+    #     f.write("x, y, z, value\n")
+    #     for x in range(density_dim):
+    #         for y in range(density_dim):
+    #             for z in range(density_dim):
+    #                 f.write(f"{x}, {y}, {z}, {estimated_heat_tensor[x, y, z]}\n")
+
+    # 3D scatter plot for the estimated heatmap
+    ax3 = fig.add_subplot(153, projection='3d')
+    scatter_x, scatter_y, scatter_z = np.where(estimated_heat_tensor > 0)
+    scatter_c = estimated_heat_tensor[scatter_x, scatter_y, scatter_z]
+    scatter_c /= scatter_c.max()  # Normalize colors
+    ax3.scatter(scatter_x, scatter_y, scatter_z, c=scatter_c, cmap='viridis')
+
+    ax3.set_title(f'Estimated 3D Scatter Heatmap for Index {index} (Density {density_dim}x{density_dim}x{density_dim})')
+    ax3.set_xlabel('X')
+    ax3.set_ylabel('Y')
+    ax3.set_zlabel('Z')
+    ax3.grid(False)
+
+    # Graph 4: Stacked and Scaled 3D Plot
+    ax4 = fig.add_subplot(154, projection='3d')
+
+    # Combine and rescale coordinates
+    all_coords = np.vstack((scaled_atom_coords, np.column_stack((scatter_x, scatter_y, scatter_z))))
+    all_coords -= all_coords.mean(axis=0)
+    all_coords /= all_coords.max(axis=0).max()
+
+    atom_coords = all_coords[:len(atom_coords)]
+    scatter_coords = all_coords[len(atom_coords):]
+
+    ax4.scatter(atom_coords[:, 0], atom_coords[:, 1], atom_coords[:, 2], c='b', s=100, label='Atoms')
+
+    for i, atom_type in enumerate(atom_types):
+        ax4.text(atom_coords[i, 0], atom_coords[i, 1], atom_coords[i, 2], atom_type, fontsize=12, color='r')
+
+    ax4.scatter(scatter_coords[:, 0], scatter_coords[:, 1], scatter_coords[:, 2], c=scatter_c, cmap='viridis', label='Heatmap')
+
+    ax4.set_title(f'Stacked 3D Structure and Heatmap for Index {index}')
+    ax4.set_xlabel('X')
+    ax4.set_ylabel('Y')
+    ax4.set_zlabel('Z')
+    ax4.grid(False)
+
+    # Graph 5: Tensor values
+    ax5_values = tensor_parser(tensor_string, density_dim)
+    ax5_x, ax5_y, ax5_z, ax5_v = zip(*ax5_values)
+
+    ax5 = fig.add_subplot(155, projection='3d')
+    sc = ax5.scatter(ax5_x, ax5_y, ax5_z, c=ax5_v, cmap='coolwarm')
+    plt.colorbar(sc, ax=ax5, orientation='horizontal')
+
+    ax5.set_title(f'Tensor Values for Index {index}')
+    ax5.set_xlabel('X')
+    ax5.set_ylabel('Y')
+    ax5.set_zlabel('Z')
+    ax5.grid(False)
+
+    plt.show()
