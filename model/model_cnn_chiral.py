@@ -35,9 +35,15 @@ def process_and_evaluate_model(filename, test_size, input_shape, task_name):
         dataset = dataset[dataset['chiral0'].isin(['R', 'S'])]
     elif task_name == "model_posneg.py":
         dataset['rotation0'] = np.where(dataset['rotation0'] > 0, 1, 0)
-    
+
+    # Ensure tensor data has 729 values
+    def parse_tensor(tensor_str):
+        values = np.fromstring(tensor_str, sep=' ')
+        assert len(values) == 729, f"Tensor does not have 729 values: {len(values)}"
+        return values.reshape(9, 9, 9)
+
     # Convert tensor data
-    tensor_data = np.stack(dataset['tensor'].apply(lambda x: np.fromstring(x, sep=' ').reshape(9, 9, 9)).values)
+    tensor_data = np.stack(dataset['tensor'].apply(parse_tensor).values)
     tensor_data = tensor_data[..., np.newaxis]  # Add a channel dimension for CNN
 
     if task_name == "model_rs.py":
