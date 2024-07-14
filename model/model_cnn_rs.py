@@ -10,10 +10,10 @@ from tensorflow.keras import backend as K
 from argparse import ArgumentParser
 
 print("model_cnn_rs.py")
+
 def f1_m(y_true, y_pred):
     y_pred = K.round(y_pred)
     tp = K.sum(K.cast(y_true * y_pred, 'float'), axis=0)
-    tn = K.sum(K.cast((1 - y_true) * (1 - y_pred), 'float'), axis=0)
     fp = K.sum(K.cast((1 - y_true) * y_pred, 'float'), axis=0)
     fn = K.sum(K.cast(y_true * (1 - y_pred), 'float'), axis=0)
 
@@ -40,8 +40,13 @@ def process_and_evaluate_model(filename, test_size, input_shape):
     # Load dataset
     dataset = pd.read_csv(filename)
 
-    # Filter dataset for model_rs
-    dataset = dataset[dataset['chiral0'].isin(['R', 'S'])]
+    # Filter dataset for molecules with exactly one chiral center marked as 'R' or 'S'
+    chiral_columns = [col for col in dataset.columns if col.startswith('chiral')]
+    dataset['chiral_count'] = dataset[chiral_columns].apply(lambda row: row.isin(['R', 'S']).sum(), axis=1)
+    dataset = dataset[dataset['chiral_count'] == 1]
+
+    # Drop the temporary 'chiral_count' column
+    dataset = dataset.drop(columns=['chiral_count'])
 
     # Ensure tensor data has 729 values
     def parse_tensor(tensor_str):
