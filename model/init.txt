@@ -1,1 +1,6 @@
+python model_cnn_chiral.py tensor_dataset_v3.csv .2
+python model_cnn_chiral_01.py tensor_dataset_v3.csv .2
+python model_cnn_chiral_length.py tensor_dataset_v3.csv .2
 
+python model_cnn_rs.py tensor_dataset_v3.csv .2
+python model_cnn_posneg.py tensor_dataset_v3.csv .2
