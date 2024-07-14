@@ -40,13 +40,8 @@ def process_and_evaluate_model(filename, test_size, input_shape):
     # Load dataset
     dataset = pd.read_csv(filename)
 
-    # Filter dataset for molecules with exactly one chiral center marked as 'R' or 'S'
-    chiral_columns = [col for col in dataset.columns if col.startswith('chiral')]
-    dataset['chiral_count'] = dataset[chiral_columns].apply(lambda row: row.isin(['R', 'S']).sum(), axis=1)
-    dataset = dataset[dataset['chiral_count'] == 1]
-
-    # Drop the temporary 'chiral_count' column
-    dataset = dataset.drop(columns=['chiral_count'])
+    # Filter dataset for molecules with exactly one chiral center
+    dataset = dataset[dataset['chiral_length'] == 1]
 
     # Ensure tensor data has 729 values
     def parse_tensor(tensor_str):
