@@ -1,13 +1,26 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv3D, Flatten, Dense, MaxPooling3D
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import backend as K
 from argparse import ArgumentParser
+
+def f1_m(y_true, y_pred):
+    y_pred = K.round(y_pred)
+    tp = K.sum(K.cast(y_true * y_pred, 'float'), axis=0)
+    tn = K.sum(K.cast((1 - y_true) * (1 - y_pred), 'float'), axis=0)
+    fp = K.sum(K.cast((1 - y_true) * y_pred, 'float'), axis=0)
+    fn = K.sum(K.cast(y_true * (1 - y_pred), 'float'), axis=0)
+
+    precision = tp / (tp + fp + K.epsilon())
+    recall = tp / (tp + fn + K.epsilon())
+
+    f1 = 2 * (precision * recall) / (precision + recall + K.epsilon())
+    return K.mean(f1)
 
 def build_cnn_model(input_shape):
     model = Sequential([
@@ -19,7 +32,7 @@ def build_cnn_model(input_shape):
         Dense(128, activation='relu'),
         Dense(1, activation='sigmoid')
     ])
-    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', f1_m])
     return model
 
 def process_and_evaluate_model(filename, test_size, input_shape):
@@ -70,19 +83,16 @@ def main():
     test_size = args.test_size
     input_shape = (9, 9, 9, 1)  # Assuming the tensor is 9x9x9 with a single channel
 
-    length, accuracy, precision, recall, f1, mse, mae = process_and_evaluate_model(filename, test_size, input_shape)
+    length, accuracy, precision, recall, f1 = process_and_evaluate_model(filename, test_size, input_shape)
     result = {
         "Length of Filtered Dataset": length,
         "Accuracy": accuracy,
         "Precision": precision,
         "Recall": recall,
-        "F1 Score": f1,
-        "MSE": mse,
-        "MAE": mae
+        "F1 Score": f1
     }
     results_df = pd.DataFrame([result])
     results_df.to_csv("model_chiral_01_results.csv", index=False)
 
 if __name__ == "__main__":
     main()
-

@@ -7,7 +7,14 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv3D, Flatten, Dense, MaxPooling3D
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import backend as K
 from argparse import ArgumentParser
+
+print("model_cnn_chiral_length.py")
+def f1_m(y_true, y_pred):
+    precision = K.sum(K.round(K.clip(y_true * y_pred, 0, 1))) / (K.sum(K.round(K.clip(y_pred, 0, 1))) + K.epsilon())
+    recall = K.sum(K.round(K.clip(y_true * y_pred, 0, 1))) / (K.sum(K.round(K.clip(y_true, 0, 1))) + K.epsilon())
+    return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
 
 def build_cnn_model(input_shape):
     model = Sequential([
@@ -19,7 +26,7 @@ def build_cnn_model(input_shape):
         Dense(128, activation='relu'),
         Dense(1, activation='sigmoid')
     ])
-    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', f1_m])
     return model
 
 def process_and_evaluate_model(filename, test_size, input_shape):
@@ -58,7 +65,6 @@ def process_and_evaluate_model(filename, test_size, input_shape):
     recall = recall_score(y_test, y_pred_classes, average='weighted')
     f1 = f1_score(y_test, y_pred_classes, average='weighted')
 
-
     return len(dataset), accuracy, precision, recall, f1
 
 def main():
@@ -71,7 +77,7 @@ def main():
     test_size = args.test_size
     input_shape = (9, 9, 9, 1)  # Assuming the tensor is 9x9x9 with a single channel
 
-    length, accuracy, precision, recall, f1, mse, mae = process_and_evaluate_model(filename, test_size, input_shape)
+    length, accuracy, precision, recall, f1 = process_and_evaluate_model(filename, test_size, input_shape)
     result = {
         "Length of Filtered Dataset": length,
         "Accuracy": accuracy,
@@ -84,4 +90,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
