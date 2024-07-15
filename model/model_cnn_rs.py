@@ -67,10 +67,16 @@ def process_and_evaluate_model(filename, test_size, input_shape):
     y_pred = model.predict(X_test)
     y_pred_classes = np.where(y_pred > 0.5, 1, 0)
 
+    # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred_classes)
     precision = precision_score(y_test, y_pred_classes, average='weighted')
     recall = recall_score(y_test, y_pred_classes, average='weighted')
     f1 = f1_score(y_test, y_pred_classes, average='weighted')
+
+    print(f"Accuracy: {accuracy}")
+    print(f"Precision: {precision}")
+    print(f"Recall: {recall}")
+    print(f"F1 Score: {f1}")
 
     return len(dataset), accuracy, precision, recall, f1
 
@@ -92,6 +98,8 @@ def main():
         "Recall": recall,
         "F1 Score": f1
     }
+    print(result)  # Added for debugging
+
     results_df = pd.DataFrame([result])
     results_df.to_csv("model_rs_results.csv", index=False)
 
