@@ -7,6 +7,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv3D, Flatten, Dense, MaxPooling3D
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import backend as K
+from tensorflow.keras.callbacks import Callback
 from argparse import ArgumentParser
 
 print("model_cnn_rs.py")
@@ -36,6 +37,27 @@ def build_cnn_model(input_shape):
     model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', f1_m])
     return model
 
+class MetricsCallback(Callback):
+    def __init__(self, X_test, y_test):
+        super().__init__()
+        self.X_test = X_test
+        self.y_test = y_test
+
+    def on_epoch_end(self, epoch, logs=None):
+        y_pred = self.model.predict(self.X_test)
+        y_pred_classes = np.where(y_pred > 0.5, 1, 0)
+
+        accuracy = accuracy_score(self.y_test, y_pred_classes)
+        precision = precision_score(self.y_test, y_pred_classes, average='weighted')
+        recall = recall_score(self.y_test, y_pred_classes, average='weighted')
+        f1 = f1_score(self.y_test, y_pred_classes, average='weighted')
+
+        print(f"Epoch {epoch + 1}")
+        print(f"Accuracy: {accuracy}")
+        print(f"Precision: {precision}")
+        print(f"Recall: {recall}")
+        print(f"F1 Score: {f1}")
+
 def process_and_evaluate_model(filename, test_size, input_shape):
     # Load dataset
     dataset = pd.read_csv(filename)
@@ -61,7 +83,8 @@ def process_and_evaluate_model(filename, test_size, input_shape):
 
     # Train the CNN model
     model = build_cnn_model(input_shape)
-    model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=1)
+    metrics_callback = MetricsCallback(X_test, y_test)
+    model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=1, callbacks=[metrics_callback])
 
     # Predict and evaluate
     y_pred = model.predict(X_test)
@@ -73,10 +96,10 @@ def process_and_evaluate_model(filename, test_size, input_shape):
     recall = recall_score(y_test, y_pred_classes, average='weighted')
     f1 = f1_score(y_test, y_pred_classes, average='weighted')
 
-    print(f"Accuracy: {accuracy}")
-    print(f"Precision: {precision}")
-    print(f"Recall: {recall}")
-    print(f"F1 Score: {f1}")
+    print(f"Final Accuracy: {accuracy}")
+    print(f"Final Precision: {precision}")
+    print(f"Final Recall: {recall}")
+    print(f"Final F1 Score: {f1}")
 
     return len(dataset), accuracy, precision, recall, f1
 
