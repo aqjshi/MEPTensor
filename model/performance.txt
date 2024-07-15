@@ -6,6 +6,10 @@ python model_cnn_rs.py tensor_dataset_v3.csv .2
 python model_cnn_posneg.py tensor_dataset_v3.csv .2
 
 Length of Filtered Dataset,Accuracy,Precision,Recall,F1 Score
+
+chiral 50 epoch
+116832,0.8450378739247657,0.848174895103016,0.8450378739247657,0.8462720643880578
+
 rs 10 epoch
 22964,0.5351622033529284,0.5354589906677226,0.5351622033529284,0.5040680929847358
 
