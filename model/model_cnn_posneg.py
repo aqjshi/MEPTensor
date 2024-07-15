@@ -1,13 +1,13 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv3D, Flatten, Dense, MaxPooling3D
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import backend as K
+from tensorflow.keras.callbacks import Callback
 from argparse import ArgumentParser
 
 print("model_cnn_posneg.py")
@@ -37,6 +37,28 @@ def build_cnn_model(input_shape):
     model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', f1_m])
     return model
 
+
+class MetricsCallback(Callback):
+    def __init__(self, X_test, y_test):
+        super().__init__()
+        self.X_test = X_test
+        self.y_test = y_test
+
+    def on_epoch_end(self, epoch, logs=None):
+        y_pred = self.model.predict(self.X_test)
+        y_pred_classes = np.where(y_pred > 0.5, 1, 0)
+
+        accuracy = accuracy_score(self.y_test, y_pred_classes)
+        precision = precision_score(self.y_test, y_pred_classes, average='weighted')
+        recall = recall_score(self.y_test, y_pred_classes, average='weighted')
+        f1 = f1_score(self.y_test, y_pred_classes, average='weighted')
+
+        print(f"Epoch {epoch + 1}")
+        print(f"Accuracy: {accuracy}")
+        print(f"Precision: {precision}")
+        print(f"Recall: {recall}")
+        print(f"F1 Score: {f1}")
+        
 def process_and_evaluate_model(filename, test_size, input_shape):
     # Load dataset
     dataset = pd.read_csv(filename)
