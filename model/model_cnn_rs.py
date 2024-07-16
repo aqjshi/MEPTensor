@@ -2,12 +2,13 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.model_selection import GridSearchCV
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv3D, Flatten, Dense, MaxPooling3D
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import backend as K
-from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.callbacks import Callback, ModelCheckpoint
 from argparse import ArgumentParser
 
 print("model_cnn_rs.py")
@@ -42,6 +43,8 @@ class MetricsCallback(Callback):
         super().__init__()
         self.X_test = X_test
         self.y_test = y_test
+        self.best_f1 = 0
+        self.best_epoch = 0
 
     def on_epoch_end(self, epoch, logs=None):
         y_pred = self.model.predict(self.X_test)
@@ -57,6 +60,12 @@ class MetricsCallback(Callback):
         print(f"Precision: {precision}")
         print(f"Recall: {recall}")
         print(f"F1 Score: {f1}")
+
+        if f1 > self.best_f1:
+            self.best_f1 = f1
+            self.best_epoch = epoch + 1
+            self.model.save('best_model.h5')
+            print(f"Best model saved at epoch {self.best_epoch} with F1 score: {self.best_f1}")
 
 def process_and_evaluate_model(filename, test_size, input_shape):
     # Load dataset
