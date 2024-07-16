@@ -62,10 +62,11 @@ def rewrite_npy_to_csv(filename, output_csv):
     df.to_csv(output_csv, index=False)
 
 
-# Function to read the CSV file and return the 'index', 'xyz', and 'rotation' columns
+# Function to read the CSV file and return the 'index', 'xyz', and 'rotation' columns, allow pickle = true
 def npy_preprocessor(filename):
     df = read_data(filename)
     return df['index'].values, df['xyz'].values, df['rotation'].values
+
 
 def npy_preprocessor_inchi(filename):
     df = read_data(filename)
@@ -92,6 +93,13 @@ def npy_preprocessor_v3_limit(filename, limit):
     df = read_data(filename)
     return df['index'].values[:limit], df['inchi'].values[:limit], df['chiral_centers'].values[:limit], df['rotation'].values[:limit]
 
+def npy_preprocessor_v4(filename):
+    df = read_data(filename)
+    return df['index'].values, df['inchi'].values, df['xyz'].values, df['chiral_centers'].values, df['rotation'].values
+
+def npy_preprocessor_v4_limit(filename, limit):
+    df = read_data(filename)
+    return df['index'].values[:limit], df['inchi'].values[:limit], df['xyz'].values[:limit], df['chiral_centers'].values[:limit], df['rotation'].values[:limit]
 
 # Function to parse the matrix string and extract coordinates and elements
 def parse_xyz_string(xyz_string):
