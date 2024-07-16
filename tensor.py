@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-from rdkit import Chem
-from rdkit.Chem import AllChem
 import argparse
 from multiprocessing import Pool, cpu_count
 from wrapper import npy_preprocessor_v4, heat_component, npy_preprocessor_v4_limit
