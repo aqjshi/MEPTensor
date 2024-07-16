@@ -1,41 +1,57 @@
-#takes a csv, split into 4 smaller files, create 4 files
 import pandas as pd
-import csv
+import zipfile
+import os
 
-def split_file(filename):
+def split_file(filename, num_splits):
     # Read the original CSV file
     df = pd.read_csv(filename)
 
     # Determine the number of rows in each split file
     num_rows = len(df)
-    split_size = num_rows // 4
+    split_size = num_rows // num_splits
 
-    # Split the DataFrame into four smaller DataFrames
-    df1 = df.iloc[:split_size]
-    df2 = df.iloc[split_size:2*split_size]
-    df3 = df.iloc[2*split_size:3*split_size]
-    df4 = df.iloc[3*split_size:]
+    # Split the DataFrame into smaller DataFrames
+    for i in range(num_splits):
+        start_index = i * split_size
+        end_index = (i + 1) * split_size if i != num_splits - 1 else num_rows
+        split_df = df.iloc[start_index:end_index]
+        
+        # Save split DataFrame to CSV
+        split_csv_filename = f'tensor_dataset_split_{i+1}.csv'
+        split_df.to_csv(split_csv_filename, index=False)
+        
+        # Zip the CSV file
+        zip_filename = f'tensor_dataset_split_{i+1}.zip'
+        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(split_csv_filename, os.path.basename(split_csv_filename))
+        
+        # Remove the original CSV file after zipping
+        os.remove(split_csv_filename)
 
-    # Save each smaller DataFrame to a new CSV file
-    df1.to_csv('tensor_dataset_split_1.csv', index=False)
-    df2.to_csv('tensor_dataset_split_2.csv', index=False)
-    df3.to_csv('tensor_dataset_split_3.csv', index=False)
-    df4.to_csv('tensor_dataset_split_4.csv', index=False)
-
-
-def merge_files(file1, file2, file3, file4):
-    # Read the four split CSV files
-    df1 = pd.read_csv(file1)
-    df2 = pd.read_csv(file2)
-    df3 = pd.read_csv(file3)
-    df4 = pd.read_csv(file4)
+def merge_files(split_filenames, output_filename):
+    # Read the split CSV files
+    dataframes = []
+    for zip_filename in split_filenames:
+        with zipfile.ZipFile(zip_filename, 'r') as zipf:
+            csv_filename = zipf.namelist()[0]
+            zipf.extract(csv_filename)
+            df = pd.read_csv(csv_filename)
+            dataframes.append(df)
+            # Remove the extracted CSV file after reading
+            os.remove(csv_filename)
 
     # Concatenate the DataFrames
-    df = pd.concat([df1, df2, df3, df4])
+    df = pd.concat(dataframes)
 
     # Save the merged DataFrame to a new CSV file
-    df.to_csv('tensor_dataset_merged.csv', index=False)
-
+    df.to_csv(output_filename, index=False)
 
 # Usage
-split_file('tensor_dataset_v3.csv')
+filename = 'tensor_electrostatic_dataset.csv'
+num_splits = 6
+split_file(filename, num_splits)
+
+# To merge the files back together
+# split_filenames = [f'tensor_dataset_split_{i+1}.zip' for i in range(num_splits)]
+# output_filename = 'tensor_dataset_merged.csv'
+# merge_files(split_filenames, output_filename)
