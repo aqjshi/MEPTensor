@@ -11,6 +11,7 @@ from tensorflow.keras.callbacks import Callback
 from argparse import ArgumentParser
 
 print("model_cnn_chiral_length.py")
+
 def f1_m(y_true, y_pred):
     precision = K.sum(K.round(K.clip(y_true * y_pred, 0, 1))) / (K.sum(K.round(K.clip(y_pred, 0, 1))) + K.epsilon())
     recall = K.sum(K.round(K.clip(y_true * y_pred, 0, 1))) / (K.sum(K.round(K.clip(y_true, 0, 1))) + K.epsilon())
@@ -24,11 +25,10 @@ def build_cnn_model(input_shape):
         MaxPooling3D(pool_size=(2, 2, 2), padding='same'),
         Flatten(),
         Dense(128, activation='relu'),
-        Dense(1, activation='sigmoid')
+        Dense(5, activation='softmax')  # 5 classes for multi-class classification
     ])
-    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', f1_m])
+    model.compile(optimizer=Adam(), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     return model
-
 
 class MetricsCallback(Callback):
     def __init__(self, X_test, y_test):
@@ -38,19 +38,19 @@ class MetricsCallback(Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         y_pred = self.model.predict(self.X_test)
-        y_pred_classes = np.where(y_pred > 0.5, 1, 0)
+        y_pred_classes = np.argmax(y_pred, axis=1)
 
         accuracy = accuracy_score(self.y_test, y_pred_classes)
-        precision = precision_score(self.y_test, y_pred_classes, average='weighted')
-        recall = recall_score(self.y_test, y_pred_classes, average='weighted')
-        f1 = f1_score(self.y_test, y_pred_classes, average='weighted')
+        precision = precision_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
+        recall = recall_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
+        f1 = f1_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
 
         print(f"Epoch {epoch + 1}")
         print(f"Accuracy: {accuracy}")
         print(f"Precision: {precision}")
         print(f"Recall: {recall}")
         print(f"F1 Score: {f1}")
-        
+
 def process_and_evaluate_model(filename, test_size, input_shape):
     # Load dataset
     dataset = pd.read_csv(filename)
@@ -79,15 +79,14 @@ def process_and_evaluate_model(filename, test_size, input_shape):
     metrics_callback = MetricsCallback(X_test, y_test)
     model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=1, callbacks=[metrics_callback])
 
-
     # Predict and evaluate
     y_pred = model.predict(X_test)
-    y_pred_classes = np.where(y_pred > 0.5, 1, 0)
+    y_pred_classes = np.argmax(y_pred, axis=1)
 
     accuracy = accuracy_score(y_test, y_pred_classes)
-    precision = precision_score(y_test, y_pred_classes, average='weighted')
-    recall = recall_score(y_test, y_pred_classes, average='weighted')
-    f1 = f1_score(y_test, y_pred_classes, average='weighted')
+    precision = precision_score(y_test, y_pred_classes, average='weighted', zero_division=0)
+    recall = recall_score(y_test, y_pred_classes, average='weighted', zero_division=0)
+    f1 = f1_score(y_test, y_pred_classes, average='weighted', zero_division=0)
 
     return len(dataset), accuracy, precision, recall, f1
 
