@@ -1,0 +1,46 @@
+TESTING 
+BASH FILE 
+'''
+python model_chiral.py tensor_dataset_v3.csv  .2 100 500
+python model_chiral_01.py tensor_dataset_v3.csv .2 100 500
+python model_chiral_length.py tensor_dataset_v3.csv .2 100 500
+python model_rs.py tensor_dataset_v3.csv .2 100 500
+python model_posneg.py tensor_dataset_v3.csv .2 100 500
+
+
+
+python rf_chiral.py tensor_dataset_v3.csv .2 100 500
+python rf_chiral_01.py tensor_dataset_v3.csv .2 100 500
+python rf_chiral_length.py tensor_dataset_v3.csv .2 100 500
+python rf_rs.py tensor_dataset_v3.csv .2 100 500
+python rf_posneg.py tensor_dataset_v3.csv .2 100 500
+
+'''
+Running Tensor.py
+
+python tensor.py [FILENAME] [DENSITY] [PRECISION]
+Example
+
+CSV PARSER
+python tensor.py xyz.csv 64 2
+
+NPY PARSER
+
+Generate Dataset:
+Testing param: python tensor.py qm9_filtered.npy 64 2
+Scientific param: python tensor.py qm9_filtered.npy 729 4
+
+python tensor.py [filename] [output_file] [DENSITY] [PRECISION]
+
+
+
+CITATIONS:
+
+https://irvinelab.uchicago.edu/papers/EI12.pdf
+https://www.biorxiv.org/content/10.1101/2022.08.24.505155v1.full.pdf
+
+https://www.nature.com/articles/s41377-020-00367-8
+
+https://www.condmatjclub.org/uploads/2013/06/JCCM_JUNE_2013_03.pdf
+
+https://arxiv.org/pdf/2008.01715
