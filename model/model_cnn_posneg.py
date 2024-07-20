@@ -64,7 +64,9 @@ def process_and_evaluate_model(filename, test_size, input_shape):
     dataset = pd.read_csv(filename)
 
     # Filter dataset for model_posneg
+    dataset = dataset[dataset['chiral_length'] == 1]
     dataset['rotation0'] = np.where(dataset['rotation0'] > 0, 1, 0)
+
 
     # Ensure tensor data has 729 values
     def parse_tensor(tensor_str):
@@ -76,6 +78,7 @@ def process_and_evaluate_model(filename, test_size, input_shape):
     tensor_data = np.stack(dataset['tensor'].apply(parse_tensor).values)
     tensor_data = tensor_data[..., np.newaxis]  # Add a channel dimension for CNN
 
+     # Filter dataset for model_chiral
     # Labels
     labels = dataset['rotation0'].values
 
@@ -84,7 +87,9 @@ def process_and_evaluate_model(filename, test_size, input_shape):
 
     # Train the CNN model
     model = build_cnn_model(input_shape)
-    model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=1)
+    metrics_callback = MetricsCallback(X_test, y_test)
+    model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=1, callbacks=[metrics_callback])
+
 
     # Predict and evaluate
     y_pred = model.predict(X_test)
