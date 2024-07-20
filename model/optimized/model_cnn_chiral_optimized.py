@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -12,7 +11,9 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import Callback
 from argparse import ArgumentParser
 
-print("model_cnn_chiral.py")
+
+PROGRAM_NAME = "model_cnn_chiral_optimized.py"
+print(PROGRAM_NAME)
 
 def f1_m(y_true, y_pred):
     precision = K.sum(K.round(K.clip(y_true * y_pred, 0, 1))) / (K.sum(K.round(K.clip(y_pred, 0, 1))) + K.epsilon())
@@ -56,6 +57,7 @@ class MetricsCallback(Callback):
         recall = recall_score(self.y_test, y_pred_classes, average='weighted')
         f1 = f1_score(self.y_test, y_pred_classes, average='weighted')
 
+        print(PROGRAM_NAME)
         print(f"Epoch {epoch + 1}")
         print(f"Accuracy: {accuracy}")
         print(f"Precision: {precision}")
@@ -105,7 +107,7 @@ def grid_search(filename, test_size, input_shape, param_grid):
     best_result = None
     
     for params in ParameterGrid(param_grid):
-        print(f"Testing with parameters: {params}")
+        print(f"{PROGRAM_NAME} Testing with parameters: {params}")
         length, accuracy, precision, recall, f1 = process_and_evaluate_model(
             filename,
             test_size,
@@ -128,7 +130,7 @@ def grid_search(filename, test_size, input_shape, param_grid):
                 "F1 Score": f1
             }
     
-    print(f"Best parameters: {best_params}")
+    print(f"{PROGRAM_NAME} Best parameters: {best_params}")
     return best_result
 
 def main():
@@ -150,7 +152,7 @@ def main():
 
     best_result = grid_search(filename, test_size, input_shape, param_grid)
     results_df = pd.DataFrame([best_result])
-    results_df.to_csv("model_chiral_results.csv", index=False)
+    results_df.to_csv(f"{PROGRAM_NAME}_results.csv", index=False)
 
 if __name__ == "__main__":
     main()

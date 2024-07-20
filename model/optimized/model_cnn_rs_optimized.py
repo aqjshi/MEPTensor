@@ -11,13 +11,11 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import Callback
 from argparse import ArgumentParser
 
-PROGRAM_NAME = "model_cnn_chiral_01_optimized.py"
-print(PROGRAM_NAME)
+PROGRAM_NAME = "model_cnn_rs_optimized.py"
 
 def f1_m(y_true, y_pred):
     y_pred = K.round(y_pred)
     tp = K.sum(K.cast(y_true * y_pred, 'float'), axis=0)
-    tn = K.sum(K.cast((1 - y_true) * (1 - y_pred), 'float'), axis=0)
     fp = K.sum(K.cast((1 - y_true) * y_pred, 'float'), axis=0)
     fn = K.sum(K.cast(y_true * (1 - y_pred), 'float'), axis=0)
 
@@ -64,6 +62,7 @@ class MetricsCallback(Callback):
         recall = recall_score(self.y_test, y_pred_classes, average='weighted')
         f1 = f1_score(self.y_test, y_pred_classes, average='weighted')
 
+    
         print(PROGRAM_NAME)
         print(f"Epoch {epoch + 1}")
         print(f"Accuracy: {accuracy}")
@@ -75,8 +74,8 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
     # Load dataset
     dataset = pd.read_csv(filename)
 
-    # Filter dataset for model_chiral_01
-    dataset = dataset[dataset['chiral_length'].isin([0, 1])]
+    # Filter dataset for molecules with exactly one chiral center
+    dataset = dataset[dataset['chiral_length'] == 1]
 
     # Ensure tensor data has 729 values
     def parse_tensor(tensor_str):
@@ -89,7 +88,7 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
     tensor_data = tensor_data[..., np.newaxis]  # Add a channel dimension for CNN
 
     # Labels
-    labels = dataset['chiral_length'].values
+    labels = dataset['chiral0'].apply(lambda x: 1 if x == 'R' else 0).values
 
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(tensor_data, labels, test_size=test_size, random_state=42)
@@ -103,6 +102,7 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
     y_pred = model.predict(X_test)
     y_pred_classes = np.where(y_pred > 0.5, 1, 0)
 
+    # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred_classes)
     precision = precision_score(y_test, y_pred_classes, average='weighted')
     recall = recall_score(y_test, y_pred_classes, average='weighted')
@@ -154,7 +154,7 @@ def main():
 
     param_grid = {
         'pooling_type': ['flatten', 'global_avg', 'global_max'],
-        'num_hidden_layers': [2, 4],
+        'num_hidden_layers': [4],
         'nodes_per_layer': [128],
         'epochs': [50]
     }

@@ -11,21 +11,13 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import Callback
 from argparse import ArgumentParser
 
-PROGRAM_NAME = "model_cnn_chiral_01_optimized.py"
+PROGRAM_NAME = "model_cnn_chiral_length_optimized.py"
 print(PROGRAM_NAME)
 
 def f1_m(y_true, y_pred):
-    y_pred = K.round(y_pred)
-    tp = K.sum(K.cast(y_true * y_pred, 'float'), axis=0)
-    tn = K.sum(K.cast((1 - y_true) * (1 - y_pred), 'float'), axis=0)
-    fp = K.sum(K.cast((1 - y_true) * y_pred, 'float'), axis=0)
-    fn = K.sum(K.cast(y_true * (1 - y_pred), 'float'), axis=0)
-
-    precision = tp / (tp + fp + K.epsilon())
-    recall = tp / (tp + fn + K.epsilon())
-
-    f1 = 2 * (precision * recall) / (precision + recall + K.epsilon())
-    return K.mean(f1)
+    precision = K.sum(K.round(K.clip(y_true * y_pred, 0, 1))) / (K.sum(K.round(K.clip(y_pred, 0, 1))) + K.epsilon())
+    recall = K.sum(K.round(K.clip(y_true * y_pred, 0, 1))) / (K.sum(K.round(K.clip(y_true, 0, 1))) + K.epsilon())
+    return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
 
 def build_cnn_model(input_shape, pooling_type='flatten', num_hidden_layers=1, nodes_per_layer=128):
     model = Sequential([
@@ -45,8 +37,8 @@ def build_cnn_model(input_shape, pooling_type='flatten', num_hidden_layers=1, no
     for _ in range(num_hidden_layers):
         model.add(Dense(nodes_per_layer, activation='relu'))
     
-    model.add(Dense(1, activation='sigmoid'))
-    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', f1_m])
+    model.add(Dense(5, activation='softmax'))  # 5 classes for multi-class classification
+    model.compile(optimizer=Adam(), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     return model
 
 class MetricsCallback(Callback):
@@ -57,12 +49,12 @@ class MetricsCallback(Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         y_pred = self.model.predict(self.X_test)
-        y_pred_classes = np.where(y_pred > 0.5, 1, 0)
+        y_pred_classes = np.argmax(y_pred, axis=1)
 
         accuracy = accuracy_score(self.y_test, y_pred_classes)
-        precision = precision_score(self.y_test, y_pred_classes, average='weighted')
-        recall = recall_score(self.y_test, y_pred_classes, average='weighted')
-        f1 = f1_score(self.y_test, y_pred_classes, average='weighted')
+        precision = precision_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
+        recall = recall_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
+        f1 = f1_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
 
         print(PROGRAM_NAME)
         print(f"Epoch {epoch + 1}")
@@ -75,8 +67,8 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
     # Load dataset
     dataset = pd.read_csv(filename)
 
-    # Filter dataset for model_chiral_01
-    dataset = dataset[dataset['chiral_length'].isin([0, 1])]
+    # Filter dataset for model_chiral_length
+    dataset = dataset[dataset['chiral_length'].isin([0, 1, 2, 3, 4])]
 
     # Ensure tensor data has 729 values
     def parse_tensor(tensor_str):
@@ -101,12 +93,12 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
 
     # Predict and evaluate
     y_pred = model.predict(X_test)
-    y_pred_classes = np.where(y_pred > 0.5, 1, 0)
+    y_pred_classes = np.argmax(y_pred, axis=1)
 
     accuracy = accuracy_score(y_test, y_pred_classes)
-    precision = precision_score(y_test, y_pred_classes, average='weighted')
-    recall = recall_score(y_test, y_pred_classes, average='weighted')
-    f1 = f1_score(y_test, y_pred_classes, average='weighted')
+    precision = precision_score(y_test, y_pred_classes, average='weighted', zero_division=0)
+    recall = recall_score(y_test, y_pred_classes, average='weighted', zero_division=0)
+    f1 = f1_score(y_test, y_pred_classes, average='weighted', zero_division=0)
 
     return len(dataset), accuracy, precision, recall, f1
 
@@ -154,9 +146,9 @@ def main():
 
     param_grid = {
         'pooling_type': ['flatten', 'global_avg', 'global_max'],
-        'num_hidden_layers': [2, 4],
-        'nodes_per_layer': [128],
-        'epochs': [50]
+        'num_hidden_layers': [1, 2],
+        'nodes_per_layer': [64, 128],
+        'epochs': [10, 20]
     }
 
     best_result = grid_search(filename, test_size, input_shape, param_grid)
