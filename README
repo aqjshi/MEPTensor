@@ -1,3 +1,4 @@
+tensor.py creates molecular tensor representation, with a precise location algorithm. We then apply energy formula and run model on output. 
 TESTING 
 
 Running Tensor.py use qm9_filtered.npy
