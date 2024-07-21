@@ -22,7 +22,13 @@ def f1_m(y_true, y_pred):
     precision = tp / (tp + fp + K.epsilon())
     recall = tp / (tp + fn + K.epsilon())
 
+    # Check for NaNs and set them to 0
+    precision = tf.where(tf.math.is_nan(precision), K.zeros_like(precision), precision)
+    recall = tf.where(tf.math.is_nan(recall), K.zeros_like(recall), recall)
+
     f1 = 2 * (precision * recall) / (precision + recall + K.epsilon())
+    f1 = tf.where(tf.math.is_nan(f1), K.zeros_like(f1), f1)  # Ensure f1 is zero where it should be
+
     return K.mean(f1)
 
 def build_cnn_model(input_shape, pooling_type='flatten', num_hidden_layers=1, nodes_per_layer=128):
@@ -44,7 +50,7 @@ def build_cnn_model(input_shape, pooling_type='flatten', num_hidden_layers=1, no
         model.add(Dense(nodes_per_layer, activation='relu'))
     
     model.add(Dense(1, activation='sigmoid'))
-    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', f1_m])
+    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', tf.keras.metrics.Recall(), f1_m])
     return model
 
 class MetricsCallback(Callback):
@@ -58,11 +64,10 @@ class MetricsCallback(Callback):
         y_pred_classes = np.where(y_pred > 0.5, 1, 0)
 
         accuracy = accuracy_score(self.y_test, y_pred_classes)
-        precision = precision_score(self.y_test, y_pred_classes, average='weighted')
-        recall = recall_score(self.y_test, y_pred_classes, average='weighted')
-        f1 = f1_score(self.y_test, y_pred_classes, average='weighted')
+        precision = precision_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
+        recall = recall_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
+        f1 = f1_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
 
-    
         print(PROGRAM_NAME)
         print(f"Epoch {epoch + 1}")
         print(f"Accuracy: {accuracy}")
@@ -96,7 +101,7 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
     # Train the CNN model
     model = build_cnn_model(input_shape, pooling_type, num_hidden_layers, nodes_per_layer)
     metrics_callback = MetricsCallback(X_test, y_test)
-    model.fit(X_train, y_train, epochs=epochs, batch_size=32, verbose=1, callbacks=[metrics_callback])
+    model.fit(X_train, y_train, epochs=epochs, batch_size=32, verbose=1, callbacks=[metrics_callback], validation_data=(X_test, y_test))
 
     # Predict and evaluate
     y_pred = model.predict(X_test)
@@ -104,9 +109,9 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
 
     # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred_classes)
-    precision = precision_score(y_test, y_pred_classes, average='weighted')
-    recall = recall_score(y_test, y_pred_classes, average='weighted')
-    f1 = f1_score(y_test, y_pred_classes, average='weighted')
+    precision = precision_score(y_test, y_pred_classes, average='weighted', zero_division=0)
+    recall = recall_score(y_test, y_pred_classes, average='weighted', zero_division=0)
+    f1 = f1_score(y_test, y_pred_classes, average='weighted', zero_division=0)
 
     return len(dataset), accuracy, precision, recall, f1
 
@@ -154,8 +159,8 @@ def main():
 
     param_grid = {
         'pooling_type': ['flatten'],
-        'num_hidden_layers': [9],
-        'nodes_per_layer': [243],
+        'num_hidden_layers': [4],
+        'nodes_per_layer': [128],
         'epochs': [50]
     }
 
