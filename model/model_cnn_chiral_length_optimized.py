@@ -145,9 +145,9 @@ def main():
     input_shape = (9, 9, 9, 1)  # Assuming the tensor is 9x9x9 with a single channel
 
     param_grid = {
-        'pooling_type': ['flatten', 'global_avg', 'global_max'],
-        'num_hidden_layers': [4],
-        'nodes_per_layer': [128],
+        'pooling_type': ['flatten'],
+        'num_hidden_layers': [9],
+        'nodes_per_layer': [243],
         'epochs': [50]
     }
 

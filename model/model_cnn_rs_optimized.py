@@ -3,7 +3,6 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import ParameterGrid
-from sklearn.utils import class_weight
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv3D, Flatten, Dense, MaxPooling3D, GlobalAveragePooling3D, GlobalMaxPooling3D
@@ -45,7 +44,7 @@ def build_cnn_model(input_shape, pooling_type='flatten', num_hidden_layers=1, no
         model.add(Dense(nodes_per_layer, activation='relu'))
     
     model.add(Dense(1, activation='sigmoid'))
-    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', tf.keras.metrics.Recall()])
+    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', f1_m])
     return model
 
 class MetricsCallback(Callback):
@@ -59,10 +58,11 @@ class MetricsCallback(Callback):
         y_pred_classes = np.where(y_pred > 0.5, 1, 0)
 
         accuracy = accuracy_score(self.y_test, y_pred_classes)
-        precision = precision_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
-        recall = recall_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
-        f1 = f1_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
+        precision = precision_score(self.y_test, y_pred_classes, average='weighted')
+        recall = recall_score(self.y_test, y_pred_classes, average='weighted')
+        f1 = f1_score(self.y_test, y_pred_classes, average='weighted')
 
+    
         print(PROGRAM_NAME)
         print(f"Epoch {epoch + 1}")
         print(f"Accuracy: {accuracy}")
@@ -93,13 +93,10 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(tensor_data, labels, test_size=test_size, random_state=42)
 
-    class_weights = class_weight.compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
-    class_weights = dict(enumerate(class_weights))
-
     # Train the CNN model
     model = build_cnn_model(input_shape, pooling_type, num_hidden_layers, nodes_per_layer)
     metrics_callback = MetricsCallback(X_test, y_test)
-    model.fit(X_train, y_train, epochs=epochs, batch_size=16, verbose=1, callbacks=[metrics_callback], validation_data=(X_test, y_test), class_weight=class_weights)
+    model.fit(X_train, y_train, epochs=epochs, batch_size=32, verbose=1, callbacks=[metrics_callback])
 
     # Predict and evaluate
     y_pred = model.predict(X_test)
@@ -107,9 +104,9 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
 
     # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred_classes)
-    precision = precision_score(y_test, y_pred_classes, average='weighted', zero_division=0)
-    recall = recall_score(y_test, y_pred_classes, average='weighted', zero_division=0)
-    f1 = f1_score(y_test, y_pred_classes, average='weighted', zero_division=0)
+    precision = precision_score(y_test, y_pred_classes, average='weighted')
+    recall = recall_score(y_test, y_pred_classes, average='weighted')
+    f1 = f1_score(y_test, y_pred_classes, average='weighted')
 
     return len(dataset), accuracy, precision, recall, f1
 
@@ -156,9 +153,9 @@ def main():
     input_shape = (9, 9, 9, 1)  # Assuming the tensor is 9x9x9 with a single channel
 
     param_grid = {
-        'pooling_type': ['global_max'],
-        'num_hidden_layers': [32],
-        'nodes_per_layer': [128],
+        'pooling_type': ['flatten'],
+        'num_hidden_layers': [9],
+        'nodes_per_layer': [243],
         'epochs': [50]
     }
 

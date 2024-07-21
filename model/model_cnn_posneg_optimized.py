@@ -152,15 +152,15 @@ def main():
     input_shape = (9, 9, 9, 1)  # Assuming the tensor is 9x9x9 with a single channel
 
     param_grid = {
-        'pooling_type': ['flatten', 'global_avg', 'global_max'],
-        'num_hidden_layers': [4],
-        'nodes_per_layer': [128],
+        'pooling_type': ['global_avg'],
+        'num_hidden_layers': [2],
+        'nodes_per_layer': [81],
         'epochs': [50]
     }
 
     best_result = grid_search(filename, test_size, input_shape, param_grid)
     results_df = pd.DataFrame([best_result])
-    results_df.to_csv(f"{PROGRAM_NAME} model_posneg_results.csv", index=False)
+    results_df.to_csv(f"{PROGRAM_NAME}_results.csv", index=False)
 
 if __name__ == "__main__":
     main()

@@ -149,9 +149,9 @@ def main():
     input_shape = (9, 81)  # Adjusted input shape for LSTM
 
     param_grid = {
-        'pooling_type': ['flatten', 'global_avg', 'global_max'],
-        'num_hidden_layers': [4],
-        'nodes_per_layer': [128],
+        'pooling_type': ['global_avg'],
+        'num_hidden_layers': [2],
+        'nodes_per_layer': [81],
         'epochs': [50]
     }
 
