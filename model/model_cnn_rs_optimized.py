@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import ParameterGrid
+from sklearn.utils import class_weight
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv3D, Flatten, Dense, MaxPooling3D, GlobalAveragePooling3D, GlobalMaxPooling3D
@@ -44,7 +45,7 @@ def build_cnn_model(input_shape, pooling_type='flatten', num_hidden_layers=1, no
         model.add(Dense(nodes_per_layer, activation='relu'))
     
     model.add(Dense(1, activation='sigmoid'))
-    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', f1_m])
+    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', tf.keras.metrics.Recall()])
     return model
 
 class MetricsCallback(Callback):
@@ -93,10 +94,12 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(tensor_data, labels, test_size=test_size, random_state=42)
 
+    class_weights = class_weight.compute_class_weight('balanced', classes = np.unique(y_train), y=y_train)
+    class_weights = dict(enumerate(class_weights))
     # Train the CNN model
     model = build_cnn_model(input_shape, pooling_type, num_hidden_layers, nodes_per_layer)
     metrics_callback = MetricsCallback(X_test, y_test)
-    model.fit(X_train, y_train, epochs=epochs, batch_size=32, verbose=1, callbacks=[metrics_callback])
+    model.fit(X_train, y_train, epochs=epochs, batch_size=16, verbose=1, callbacks=[metrics_callback], validation_data=(X_test, y_test), class_weight = class_weights)
 
     # Predict and evaluate
     y_pred = model.predict(X_test)
@@ -153,8 +156,8 @@ def main():
     input_shape = (9, 9, 9, 1)  # Assuming the tensor is 9x9x9 with a single channel
 
     param_grid = {
-        'pooling_type': ['flatten', 'global_avg', 'global_max'],
-        'num_hidden_layers': [4],
+        'pooling_type': ['global_max'],
+        'num_hidden_layers': [64],
         'nodes_per_layer': [128],
         'epochs': [50]
     }
