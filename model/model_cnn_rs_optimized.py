@@ -1,3 +1,8 @@
+'''
+: 0.6932 - val_accuracy: 0.4915 - val_recall: 1.0000
+/gpfs/fs1/home/qshi10/PycharmProjects/pythonProject/venv/lib64/python3.6/site-packages/sklearn/metrics/_classification.py:1248: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.
+
+'''
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
