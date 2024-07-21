@@ -1,1 +1,19 @@
-
+(venv) [qshi10@bhc0004 pythonProject]$ ls *results.csv
+model_chiral_01_results.csv      model_cnn_chiral_01_optimized.py_results.csv  model_rs_results.csv
+model_chiral_length_results.csv  model_cnn_chiral_optimized.py_results.csv
+model_chiral_results.csv         model_posneg_results.csv
+(venv) [qshi10@bhc0004 pythonProject]$ cat *results.csv
+Length of Filtered Dataset,Accuracy,Precision,Recall,F1 Score
+59148,0.8086221470836855,0.8141022522405293,0.8086221470836855,0.8100672616299209
+Length of Filtered Dataset,Accuracy,Precision,Recall,F1 Score
+116263,0.6284135380381026,0.6290694104408041,0.6284135380381026,0.6279357612372535
+Length of Filtered Dataset,Accuracy,Precision,Recall,F1 Score
+121416,0.8846335989457862,0.8885486300754015,0.8846335989457862,0.8859400465868168
+Length of Filtered Dataset,Accuracy,Precision,Recall,F1 Score
+59148,0.7994928148774303,0.8051894807549153,0.7994928148774303,0.801024007528069
+Length of Filtered Dataset,Accuracy,Precision,Recall,F1 Score
+121416,0.8930961352358597,0.8918116217631653,0.8930961352358597,0.8921071192463875
+Length of Filtered Dataset,Accuracy,Precision,Recall,F1 Score
+22973,0.5218072603813007,0.5182124331790899,0.5218072603813007,0.5132620596097136
+Length of Filtered Dataset,Accuracy,Precision,Recall,F1 Score
+22973,0.5848350309045007,0.588725450669867,0.5848350309045007,0.5772034411468606
