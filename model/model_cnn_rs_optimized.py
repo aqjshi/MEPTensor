@@ -1,8 +1,3 @@
-'''
-: 0.6932 - val_accuracy: 0.4915 - val_recall: 1.0000
-/gpfs/fs1/home/qshi10/PycharmProjects/pythonProject/venv/lib64/python3.6/site-packages/sklearn/metrics/_classification.py:1248: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.
-
-'''
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -64,11 +59,10 @@ class MetricsCallback(Callback):
         y_pred_classes = np.where(y_pred > 0.5, 1, 0)
 
         accuracy = accuracy_score(self.y_test, y_pred_classes)
-        precision = precision_score(self.y_test, y_pred_classes, average='weighted')
-        recall = recall_score(self.y_test, y_pred_classes, average='weighted')
-        f1 = f1_score(self.y_test, y_pred_classes, average='weighted')
+        precision = precision_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
+        recall = recall_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
+        f1 = f1_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
 
-    
         print(PROGRAM_NAME)
         print(f"Epoch {epoch + 1}")
         print(f"Accuracy: {accuracy}")
@@ -99,12 +93,13 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(tensor_data, labels, test_size=test_size, random_state=42)
 
-    class_weights = class_weight.compute_class_weight('balanced', classes = np.unique(y_train), y=y_train)
+    class_weights = class_weight.compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
     class_weights = dict(enumerate(class_weights))
+
     # Train the CNN model
     model = build_cnn_model(input_shape, pooling_type, num_hidden_layers, nodes_per_layer)
     metrics_callback = MetricsCallback(X_test, y_test)
-    model.fit(X_train, y_train, epochs=epochs, batch_size=16, verbose=1, callbacks=[metrics_callback], validation_data=(X_test, y_test), class_weight = class_weights)
+    model.fit(X_train, y_train, epochs=epochs, batch_size=16, verbose=1, callbacks=[metrics_callback], validation_data=(X_test, y_test), class_weight=class_weights)
 
     # Predict and evaluate
     y_pred = model.predict(X_test)
@@ -112,9 +107,9 @@ def process_and_evaluate_model(filename, test_size, input_shape, pooling_type, n
 
     # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred_classes)
-    precision = precision_score(y_test, y_pred_classes, average='weighted')
-    recall = recall_score(y_test, y_pred_classes, average='weighted')
-    f1 = f1_score(y_test, y_pred_classes, average='weighted')
+    precision = precision_score(y_test, y_pred_classes, average='weighted', zero_division=0)
+    recall = recall_score(y_test, y_pred_classes, average='weighted', zero_division=0)
+    f1 = f1_score(y_test, y_pred_classes, average='weighted', zero_division=0)
 
     return len(dataset), accuracy, precision, recall, f1
 
@@ -162,7 +157,7 @@ def main():
 
     param_grid = {
         'pooling_type': ['global_max'],
-        'num_hidden_layers': [64],
+        'num_hidden_layers': [32],
         'nodes_per_layer': [128],
         'epochs': [50]
     }
