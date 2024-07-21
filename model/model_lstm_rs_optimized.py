@@ -1,3 +1,22 @@
+
+  File "model_lstm_rs_optimized.py", line 177, in <module>
+    main()
+  File "model_lstm_rs_optimized.py", line 171, in main
+    best_result = grid_search(filename, test_size, input_shape, param_grid)
+  File "model_lstm_rs_optimized.py", line 135, in grid_search
+    params['epochs']
+  File "model_lstm_rs_optimized.py", line 99, in process_and_evaluate_model
+    class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
+NameError: name 'compute_class_weight' is not defined
+^CTraceback (most recent call last):
+  File "model_lstm_posneg_optimized.py", line 3, in <module>
+    from sklearn.model_selection import train_test_split
+  File "/gpfs/fs1/home/qshi10/PycharmProjects/pythonProject/venv/lib64/python3.6/site-packages/sklearn/__init__.py", line 82, in <module>
+    from .base import clone
+  File "/gpfs/fs1/home/qshi10/PycharmProjects/pythonProject/venv/lib64/python3.6/site-packages/sklearn/base.py", line 17, in <module>
+    from .utils import _IS_32BIT
+
+
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
