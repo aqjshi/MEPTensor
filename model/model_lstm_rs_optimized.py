@@ -22,13 +22,15 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import ParameterGrid
+from sklearn.utils.class_weight import compute_class_weight
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Flatten, Dense, GlobalAveragePooling1D, GlobalMaxPooling1D
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import Callback
-from argparse import ArgumentParser
 from tensorflow.keras import backend as K
+from argparse import ArgumentParser
+
 
 PROGRAM_NAME = "model_lstm_rs_optimized.py"
 print(PROGRAM_NAME)
