@@ -9,25 +9,16 @@ PRECISION = 3
 
 atom_dict = {1: 'H', 2: 'C', 3: 'N', 4: 'O', 5: 'F'}
 
-def distance(point1, point2, min_x, max_x, min_y, max_y, min_z, max_z):
-    # Calculate scaling factors
-    S_x = (max_x - min_x)
-    S_y = (max_y - min_y)
-    S_z = (max_z - min_z)
+def distance(point1, point2):
+    return np.linalg.norm(np.array(point1) - np.array(point2))
 
-    # Convert cube points to rectangular points
-    rect_point1 = np.array([min_x + point1[0] * S_x, min_y + point1[1] * S_y, min_z + point1[2] * S_z])
-    rect_point2 = np.array([min_x + point2[0] * S_x, min_y + point2[1] * S_y, min_z + point2[2] * S_z])
 
-    # Calculate and return the true distance
-    return np.linalg.norm(rect_point1 - rect_point2)
-
-def calculate_electrostatic_potential_energy(tensor_positions, atom_coords, nuclear_charges, min_x, max_x, min_y, max_y, min_z, max_z):
+def calculate_electrostatic_potential_energy(tensor_positions, atom_coords, nuclear_charges):
     electrostatic_potential_energy = np.zeros(tensor_positions.shape[0])
-    ke = 8.9875517873681764 # Coulomb's constant in N m²/C²
+    ke = 8.9875517873681764  /1000 # Coulomb's constant in N m²/C²
 
     for i, atom_xyz in enumerate(atom_coords):
-        distances = np.array([distance(tp, atom_xyz, min_x, max_x, min_y, max_y, min_z, max_z) for tp in tensor_positions])
+        distances = np.array([distance(tp, atom_xyz) for tp in tensor_positions])
         nuclear_charge = nuclear_charges[i]
         electrostatic_potential_energy += np.where(
             distances < 1e-8,
@@ -37,7 +28,7 @@ def calculate_electrostatic_potential_energy(tensor_positions, atom_coords, nucl
     return electrostatic_potential_energy
 
 def process_molecule(args):
-    index, inchi, xyz_array, chiral_centers, rotation, resolution_dim, min_x, min_y, min_z, molecule_range, min_x, max_x, min_y, max_y, min_z, max_z = args
+    index, inchi, xyz_array, chiral_centers, rotation, resolution_dim = args
 
     # Map one-hot encoded arrays to atom types
     atom_list = []
@@ -76,7 +67,7 @@ def process_molecule(args):
     nuclear_charges_dict = {'H': 1, 'C': 6, 'N': 7, 'O': 8, 'F': 9}
     nuclear_charges = [nuclear_charges_dict[atom] for atom in atom_list]
 
-    electrostatic_potential_energy_values = calculate_electrostatic_potential_energy(tensor_positions, scaled_atom_coords, nuclear_charges, min_x, max_x, min_y, max_y, min_z, max_z)
+    electrostatic_potential_energy_values = calculate_electrostatic_potential_energy(tensor_positions, scaled_atom_coords, nuclear_charges)
     combined_tensor_values = [f"{round(val, PRECISION)}" for val in electrostatic_potential_energy_values]
 
     return {
@@ -111,7 +102,7 @@ def construct_tensor_parallel(index_array, inchi_array, xyz_arrays, chiral_cente
     molecule_range = max(max_x - min_x, max_y - min_y, max_z - min_z)
 
     pool = Pool(cpu_count())
-    args = [(index_array[i], inchi_array[i], xyz_arrays[i], chiral_centers_array[i], rotation_array[i], resolution_dim, min_x, min_y, min_z, molecule_range, min_x, max_x, min_y, max_y, min_z, max_z)
+    args = [(index_array[i], inchi_array[i], xyz_arrays[i], chiral_centers_array[i], rotation_array[i], resolution_dim)
             for i in range(len(index_array))]
     
     results = pool.map(process_molecule, args)
@@ -132,6 +123,7 @@ def main():
     parser.add_argument("resolution", type=int, help="The resolution of the cube (number of cubes per side)")
     args = parser.parse_args()
 
+    # expect df['index'].values[:limit], df['inchi'].values[:limit], df['xyz'].values[:limit], df['chiral_centers'].values[:limit], df['rotation'].values[:limit]
     index_array, inchi_array, xyz_arrays, chiral_centers_array, rotation_array = npy_preprocessor_v4(args.npy_file)
     print(len(index_array))
     df = construct_tensor_parallel(index_array, inchi_array, xyz_arrays, chiral_centers_array, rotation_array, int(args.resolution))
