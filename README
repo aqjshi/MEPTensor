@@ -7,8 +7,7 @@ python tensor.py [FILENAME]
 
 Running model 
 
-python [PROGRAM_NAME].py [INPUT_FILE] [test_size]
-
+python model_lstm_master.py tensor_electrostatic_dataset.csv 9 2
 
 
 CITATIONS:
