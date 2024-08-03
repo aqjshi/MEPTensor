@@ -1,39 +1,22 @@
+import os
+import re
+import time
+import numpy as np
+import pandas as pd
 import tensorflow as tf
-import keras
 from keras.models import Sequential
-from keras.layers import LSTM, Flatten, Dense, GlobalAveragePooling1D, GlobalMaxPooling1D, BatchNormalization, Dropout, Reshape
+from keras.layers import (LSTM, Flatten, Dense, GlobalAveragePooling1D, GlobalMaxPooling1D, 
+                          Conv3D, MaxPooling3D, GlobalAveragePooling3D, GlobalMaxPooling3D, 
+                          BatchNormalization, Dropout)
+import keras
 from keras.optimizers import Adam
 from keras.callbacks import Callback
 from keras import backend as K
-from keras.utils import plot_model
-from keras import Input
-
-import pandas as pd
-import numpy as np
-import re
-import time
+from keras.utils import plot_model, to_categorical
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
 from sklearn.utils.class_weight import compute_class_weight
-from sklearn.model_selection import ParameterGrid
-
 from argparse import ArgumentParser
-from multiprocessing import Pool, cpu_count
-import matplotlib.pyplot as plt
-from wrapper import npy_preprocessor_v4, heat_component, npy_preprocessor_v4_limit
-from numba import cuda
-import os
-
-PROGRAM_NAME = "lstm"
-print(PROGRAM_NAME)
-
-# def check_versions_and_gpu():
-#     print("TensorFlow version:", tf.__version__)
-#     print("Keras version:", keras.__version__)
-#     print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-
-# check_versions_and_gpu()
-
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
@@ -45,121 +28,124 @@ if gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
     except RuntimeError as e:
         print(e)
-        
-        
-def weighted_binary_crossentropy(class_weights):
+
+    
+    
+set_batch_size = 32
+
+def weighted_loss(class_weights, loss_fn):
+    class_weights_tensor = tf.constant([class_weights[i] for i in sorted(class_weights.keys())], dtype=tf.float32)
     def loss(y_true, y_pred):
-        # Calculate the binary cross entropy loss
-        bce = keras.losses.binary_crossentropy(y_true, y_pred)
-        # Apply class weights
-        weight_vector = y_true * class_weights[1] + (1 - y_true) * class_weights[0]
-        weighted_bce = weight_vector * bce
-        return tf.reduce_mean(weighted_bce)
+        y_true = tf.cast(y_true, tf.float32)
+        weight_vector = tf.gather(class_weights_tensor, tf.argmax(y_true, axis=-1))
+        return tf.reduce_mean(weight_vector * loss_fn(y_true, y_pred))
     return loss
 
+
+
 def f1_m(y_true, y_pred):
-    y_true = tf.cast(y_true, tf.float32)
-    y_pred = tf.round(tf.cast(y_pred, tf.float32))
+    y_true, y_pred = tf.cast(y_true, tf.float32), tf.round(tf.cast(y_pred, tf.float32))
     tp = tf.reduce_sum(tf.cast(y_true * y_pred, 'float32'), axis=0)
-    tn = tf.reduce_sum(tf.cast((1 - y_true) * (1 - y_pred), 'float32'), axis=0)
     fp = tf.reduce_sum(tf.cast((1 - y_true) * y_pred, 'float32'), axis=0)
     fn = tf.reduce_sum(tf.cast(y_true * (1 - y_pred), 'float32'), axis=0)
-
-    precision = tp / (tp + fp + keras.backend.epsilon())
-    recall = tp / (tp + fn + keras.backend.epsilon())
-
-    f1 = 2 * (precision * recall) / (precision + recall + keras.backend.epsilon())
+    precision = tp / (tp + fp + K.epsilon())
+    recall = tp / (tp + fn + K.epsilon())
+    f1 = 2 * (precision * recall) / (precision + recall + K.epsilon())
     return tf.reduce_mean(f1)
 
-def build_lstm_model(input_shape, pooling_type='flatten', num_hidden_layers=1, nodes_per_layer=128, num_classes=1, class_weights=None):
+
+def build_lstm_model(input_shape, pooling_type='flatten', num_hidden_layers=1, nodes_per_layer=128, num_classes=2, class_weights=None):
     model = Sequential()
-    model.add(LSTM(64, return_sequences=True, input_shape=input_shape))
+    model.add(LSTM(64, input_shape=input_shape, return_sequences=True))
     model.add(BatchNormalization())
+    model.add(LSTM(64))
     model.add(Dropout(0.3))
-    
-    if pooling_type == 'flatten':
-        model.add(Flatten())
-    elif pooling_type == 'global_avg':
-        model.add(GlobalAveragePooling1D())
-    elif pooling_type == 'global_max':
-        model.add(GlobalMaxPooling1D())
-    
+
     for _ in range(num_hidden_layers):
         model.add(Dense(nodes_per_layer, activation='relu'))
         model.add(Dropout(0.5))
     
-    if num_classes > 1:
-        model.add(Dense(num_classes, activation='softmax'))
-    else:
-        model.add(Dense(1, activation='sigmoid'))
-
-    if class_weights:
-        loss = weighted_binary_crossentropy(class_weights)
-    else:
-        loss = 'binary_crossentropy'
-
-    model.compile(optimizer=Adam(), loss=loss, metrics=['accuracy', f1_m])
+    model.add(Dense(num_classes, activation='softmax'))
+    loss = weighted_loss(class_weights, keras.losses.CategoricalCrossentropy())
+    model.compile(optimizer=Adam(), loss=loss, metrics=['accuracy'])
     return model
-
-
 
 
 class MetricsCallback(Callback):
     def __init__(self, X_test, y_test):
         super().__init__()
-        self.X_test = X_test
-        self.y_test = y_test
+        self.X_test, self.y_test = X_test, y_test
         self.epoch_metrics = []
         self.conf_matrix = None
         self.class_report = None
 
     def on_epoch_end(self, epoch, logs=None):
+        # BINARY Label Ad Hoc casting
+        # 1 is always the positive or 'first' one, for lstm chiral: chiral; for lstm_chiral_01: chiral, posneg: 1; posneg_all: 1; rs: r
+        # 0 is always the negative or 'sub' one, for lstm chiral: not chiral; for lstm_chiral_01: not chiral, posneg: -1; posneg_all: -1; rs: s
+        # chiral_length is not binary
+        
         y_pred = self.model.predict(self.X_test)
-        y_pred_classes = np.argmax(y_pred, axis=1) if y_pred.shape[-1] > 1 else np.where(y_pred > 0.5, 1, 0)
-
-        accuracy = accuracy_score(self.y_test, y_pred_classes)
-        precision = precision_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
-        recall = recall_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
-        f1 = f1_score(self.y_test, y_pred_classes, average='weighted', zero_division=0)
-        self.conf_matrix = confusion_matrix(self.y_test, y_pred_classes)
-        self.class_report = classification_report(self.y_test, y_pred_classes, target_names=['Not Chiral', 'Chiral'])
-
+        y_pred_classes, y_test_classes = np.argmax(y_pred, axis=1), np.argmax(self.y_test, axis=1)
+        
+        # Calculate metrics
+        accuracy = accuracy_score(y_test_classes, y_pred_classes)
+        precision = precision_score(y_test_classes, y_pred_classes, average='weighted', zero_division=0)
+        recall = recall_score(y_test_classes, y_pred_classes, average='weighted', zero_division=0)
+        f1 = f1_score(y_test_classes, y_pred_classes, average='weighted', zero_division=0)
         self.epoch_metrics.append((epoch + 1, accuracy, precision, recall, f1))
+        
+        # Confusion matrix and classification report with binary labeling
+        self.conf_matrix = confusion_matrix(y_test_classes, y_pred_classes)
+        
+        # Custom target names based on binary label ad hoc casting
+        if len(np.unique(y_test_classes)) == 2:
+            target_names = ['Not Chiral', 'Chiral']
+        else:
+            target_names = [f'Class {i}' for i in range(len(np.unique(y_test_classes)))]
 
-        print(f"Epoch {epoch + 1}")
-        print(f"Accuracy: {accuracy}")
-        print(f"Precision: {precision}")
-        print(f"Recall: {recall}")
-        print(f"F1 Score: {f1}")
+        self.class_report = classification_report(y_test_classes, y_pred_classes, target_names=target_names)
+
+        # Print metrics and reports
+        print(f"Epoch {epoch + 1} - Accuracy: {accuracy}, Precision: {precision}, Recall: {recall}, F1 Score: {f1}")
         print("Confusion Matrix:")
         print(self.conf_matrix)
         print("Classification Report:")
         print(self.class_report)
-        
-        
-def run_model(dataset, input_shape, pooling_type, num_hidden_layers, nodes_per_layer, epochs, model_name, num_classes):
-    def parse_tensor(tensor_str):
-        values = np.fromstring(tensor_str, sep=' ')
-        return values.reshape(input_shape[0], input_shape[0], input_shape[0])
 
-    tensor_data = np.stack(dataset['tensor'].apply(parse_tensor).values)
-    tensor_data = tensor_data.reshape(tensor_data.shape[0], input_shape[0], -1)
+def tensor_generator(data, labels, batch_size, input_shape):
+    while True:
+        indices = np.arange(len(data))
+        np.random.shuffle(indices)
+        for start in range(0, len(data), batch_size):
+            end = min(start + batch_size, len(data))
+            batch_indices = indices[start:end]
+            batch_tensors = [np.fromstring(data[i], sep=' ').reshape(*input_shape, 1) for i in batch_indices]
+            yield np.array(batch_tensors), np.array(labels[batch_indices])
 
-    labels = dataset[model_name].values
 
-    X_train, X_test, y_train, y_test = train_test_split(tensor_data, labels, test_size=0.2, random_state=42)
+def run_model(dataset, labels, input_shape, pooling_type, num_hidden_layers, nodes_per_layer, epochs, model_name, num_classes):
+    labels = to_categorical(labels, num_classes=num_classes)
+    
+    train_data, test_data, train_labels, test_labels = train_test_split(dataset, labels, test_size=0.2, random_state=42)
+    train_generator = tensor_generator(train_data, train_labels, set_batch_size, input_shape)
+    test_generator = tensor_generator(test_data, test_labels, set_batch_size, input_shape)
+    steps_per_epoch = int(len(train_data) // set_batch_size /100)
+    validation_steps = int(len(test_data) // set_batch_size /100)
+    X_test, y_test = [], []
+    for _ in range(validation_steps):
+        X_batch, y_batch = next(test_generator)
+        X_test.extend(X_batch)
+        y_test.extend(y_batch)
+    X_test = np.array(X_test)
+    y_test = np.array(y_test)
 
-    model = build_lstm_model(input_shape, pooling_type, num_hidden_layers, nodes_per_layer, num_classes)
+    class_weights = compute_class_weight('balanced', classes=np.unique(np.argmax(train_labels, axis=1)), y=np.argmax(train_labels, axis=1))
+    class_weight_dict = {i: class_weights[i] for i in range(len(class_weights))}
+    
+    model = build_lstm_model(input_shape, pooling_type, num_hidden_layers, nodes_per_layer, num_classes, class_weights=class_weight_dict)
     metrics_callback = MetricsCallback(X_test, y_test)
-    model.fit(X_train, y_train, epochs=epochs, batch_size=32, verbose=1, callbacks=[metrics_callback])
-
-    y_pred = model.predict(X_test)
-    y_pred_classes = np.where(y_pred > 0.5, 1, 0)
-
-    accuracy = accuracy_score(y_test, y_pred_classes)
-    precision = precision_score(y_test, y_pred_classes, average='weighted')
-    recall = recall_score(y_test, y_pred_classes, average='weighted')
-    f1 = f1_score(y_test, y_pred_classes, average='weighted')
+    model.fit(train_generator, epochs=epochs, steps_per_epoch=steps_per_epoch, validation_data=(X_test, y_test), verbose=1, callbacks=[metrics_callback])
 
     epoch_metrics = metrics_callback.epoch_metrics
 
@@ -186,16 +172,53 @@ def main():
     input_shape = (resolution, resolution**2) 
     dataset = pd.read_csv(filename)
     
-    
+
+
+    if 'tensor' not in dataset.columns:
+        raise KeyError("The dataset does not contain a 'tensor' column.")
+
+    # Model configurations
     models = [
-        {"name": "lstm_chiral", "filter": lambda df: df.assign(chiral=df['chiral_length'].apply(lambda x: 1 if x != 0 else 0)), "label_column": "chiral", "num_classes": 1},
-        {"name": "lstm_chiral_01", "filter": lambda df: df[df['chiral_length'].isin([0, 1])].assign(chiral_length_01=df['chiral_length']), "label_column": "chiral_length_01", "num_classes": 1},
-        # {"name": "lstm_chiral_length", "filter": lambda df: df[df['chiral_length'].isin([0, 1, 2, 3, 4])], "label_column": "chiral_length", "num_classes": 5},
-        {"name": "lstm_posneg", "filter": lambda df: df[df['chiral_length'] == 1].assign(rotation0_binary=lambda df: np.where(df['rotation0'] > 0, 1, 0)), "label_column": "rotation0_binary", "num_classes": 1},
-        {"name": "lstm_posneg_all", "filter": lambda df: df.assign(rotation0_binary=lambda df: np.where(df['rotation0'] > 0, 1, 0)), "label_column": "rotation0_binary", "num_classes": 1},
-        {"name": "lstm_rs", "filter": lambda df: df[df['chiral_length'] == 1].assign(chiral_binary=lambda df: df['chiral0'].apply(lambda x: 1 if x == 'R' else 0)), "label_column": "chiral_binary", "num_classes": 1}
+    {
+        "name": "lstm_chiral",
+        "filter": lambda df: df.assign(chiral=df['chiral_length'].apply(lambda x: 1 if x != 0 else 0)),
+        "label_column": "chiral",
+        "num_classes": 2
+    },
+    {
+        "name": "lstm_chiral_01",
+        "filter": lambda df: df[df['chiral_length'].isin([0, 1])].assign(chiral_length_01=df['chiral_length']),
+        "label_column": "chiral_length_01",
+        "num_classes": 2
+    },
+    {
+        "name": "lstm_chiral_length",
+        "filter": lambda df: df[df['chiral_length'].isin([0, 1, 2, 3, 4])],
+        "label_column": "chiral_length",
+        "num_classes": 5
+    },
+    {
+        "name": "lstm_posneg",
+        "filter": lambda df: df[df['chiral_length'] == 1].assign(rotation0_binary=lambda df: np.where(df['rotation0'] > 0, 1, 0)),
+        "label_column": "rotation0_binary",
+        "num_classes": 2
+    },
+    {
+        "name": "lstm_posneg_all",
+        "filter": lambda df: df.assign(rotation0_binary=lambda df: np.where(df['rotation0'] > 0, 1, 0)),
+        "label_column": "rotation0_binary",
+        "num_classes": 2
+    },
+    {
+        "name": "lstm_rs",
+        "filter": lambda df: df[df['chiral_length'] == 1].assign(chiral_binary=lambda df: df['chiral0'].apply(lambda x: 1 if x == 'R' else 0)),
+        "label_column": "chiral_binary",
+        "num_classes": 2
+    }
     ]
-    
+
+
+
     results = []
 
     for model_config in models:
@@ -205,9 +228,15 @@ def main():
         num_classes = model_config["num_classes"]
 
         filtered_dataset = filter_func(dataset)
-        # tensor_data = filtered_dataset['tensor'].values
+        if 'tensor' not in filtered_dataset.columns:
+            raise KeyError(f"The filtered dataset for {model_name} does not contain a 'tensor' column.")
         
-        # labels = filtered_dataset[label_column].values
+        tensor_data = filtered_dataset['tensor'].values
+        if label_column not in filtered_dataset.columns:
+            raise KeyError(f"The filtered dataset for {model_name} does not contain the label column '{label_column}'.")
+        
+        labels = filtered_dataset[label_column].values
+
         if model_name == "lstm_chiral":
             pooling_type = 'flatten'
             hidden_layers = 2
@@ -233,7 +262,7 @@ def main():
             hidden_layers = 2
             nodes_per_layer = 64
         
-        result = run_model(filtered_dataset, input_shape, pooling_type='flatten', num_hidden_layers=2, nodes_per_layer=128, epochs=epochs, model_name=label_column, num_classes=num_classes)
+        result = run_model(tensor_data, labels, input_shape, pooling_type, hidden_layers, nodes_per_layer, epochs, model_name, num_classes)
         results.append(result)
 
     results_df = pd.DataFrame(results)
