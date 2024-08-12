@@ -10,21 +10,33 @@ TensorFlow version: 2.16.2
 Keras version: 3.0.5
 
 
+Need python 3.12.0 >=
+
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Thu_Jun__6_02:18:23_PDT_2024
+Cuda compilation tools, release 12.5, V12.5.82
+Build cuda_12.5.r12.5/compiler.34385749_0
+
+TensorFlow version: 2.16.2
+Keras version: 3.0.5
+
+
 tensor.py creates molecular tensor representation, with a precise location algorithm. We then apply energy formula and run model on output. 
 TESTING 
 
 python bin/init.py
 
-python bin/cache_features.py qm9_filtered.npy cache_features.csv 9
+python bin/cache_features.py qm9_filtered.npy cache/cache_features.csv 9
 
-output cache_features.csv
-cache_features.csv columns: index, inchi, chiral_centers, chiral_length, rotation0, rotation1, rotation2
+output cache/cache_features.csv
+cache/cache_features.csv columns: index, inchi, chiral_centers, chiral_length, rotation0, rotation1, rotation2
 
 
-python bin/cache_ohe_order.py qm9_filtered.npy cache_ohe_order.csv 9
+python bin/cache_ohe_order.py qm9_filtered.npy cache/cache_ohe_order.csv 9
 
-output cache_ohe_order.csv
-cache_ohe_order.csv columns: index, inchi, agent0,agent1,agent2,agent3,agent4,agent5,agent6,agent7,
+output cache/cache_ohe_order.csv
+cache/cache_ohe_order.csv columns: index, inchi, agent0,agent1,agent2,agent3,agent4,agent5,agent6,agent7,
 agent8,agent9,agent10,agent11,agent12,agent13,agent14,agent15,agent16,agent17,agent18,agent19,agent20,
 agent21,agent22,agent23,agent24,agent25,agent26,agent27,agent28,agent29,agent30,agent31
 
@@ -36,20 +48,26 @@ one_dim_position4,one_dim_position5,one_dim_position6,one_dim_position7
 
 python bin/cache_tensor.py qm9_filtered.npy cache/cache_tensor.csv cache/cache_tensor_order.csv 9
 
-output cache_tensor.csv
-cache_tensor.csv columns:  index, inchi, tensor
+output cache/cache_tensor.csv
+cache/cache_tensor.csv columns:  index, inchi, tensor
 
-ouput cache_tensor_order.csv
-cache_tensor_order.csv columns:  tensor
+ouput cache/cache_tensor_order.csv
+cache/cache_tensor_order.csv columns:  tensor
 tensor values: plot tensor position 0 as 1, position 1 as 2 .... position x as x+1
 
-python bin/cache_agent_message.py 
-output cache_agent_message.csv
+python bin/cache_agent_message.py cache/cache_tensor.csv cache/cache_ohe_order.csv 9 1
+output cache/cache_agent_message.csv
 
 python bin/visualizer_new.py  cache/cache_tensor.
 csv cache/cache_tensor_order.csv 
 
 output: images/tensor_order.png, tensor_values.png
+
+
+
+
+
+
 
 
 
