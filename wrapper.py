@@ -8,7 +8,7 @@ import pandas as pd
 def heat_component(tensor, tensor_x, tensor_y, tensor_z, tensor_weight, resolution_dim):
     # Determine the base indices
     base_x, base_y, base_z = int(tensor_x), int(tensor_y), int(tensor_z)
-    # Get the decimal part for bleeding
+    # # Get the decimal part for bleeding
     bleed_x = tensor_x % 1
     bleed_y = tensor_y % 1
     bleed_z = tensor_z % 1
@@ -27,6 +27,15 @@ def heat_component(tensor, tensor_x, tensor_y, tensor_z, tensor_weight, resoluti
     weights[1, 0, 1] = bleed_x * complement_bleed_y * bleed_z * tensor_weight
     weights[1, 1, 0] = bleed_x * bleed_y * complement_bleed_z * tensor_weight
     weights[1, 1, 1] = bleed_x * bleed_y * bleed_z * tensor_weight
+
+    # weights[0, 0, 0] = tensor_weight
+    # weights[0, 0, 1] = tensor_weight
+    # weights[0, 1, 0] = tensor_weight
+    # weights[0, 1, 1] = tensor_weight
+    # weights[1, 0, 0] = tensor_weight
+    # weights[1, 0, 1] = tensor_weight
+    # weights[1, 1, 0] = tensor_weight
+    # weights[1, 1, 1] = tensor_weight
 
     # Add weights to the tensor
     for dx in range(2):
