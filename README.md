@@ -10,11 +10,16 @@ This repository implements a deep learning model using transformers for voxel da
 
 ## Directory Structure
 root/
-├──train_rs/ # Training data directory \n
-├── test_rs/ # Testing data directory \n
-├── main.py # Main script for training and evaluation \n
-├── model_predictions.png # Output image of model predictions \n
-└── confusion_matrix.png # Output image of confusion matrix \n
+├──train_rs/ # Training data directory  
+
+├── test_rs/ # Testing data directory  
+
+├── main.py # Main script for training and evaluation  
+
+├── model_predictions.png # Output image of model predictions  
+
+└── confusion_matrix.png # Output image of confusion matrix  
+
 
 ## Classification Tasks
 You can choose from the following classification tasks:
