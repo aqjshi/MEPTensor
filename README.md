@@ -39,7 +39,7 @@ Make sure you have the following dependencies installed. You can install them us
 Clone this repository and install the dependencies:
 
 ```bash
-git clone https://github.com/yourusername/voxel-transformer-model.git
+git clone https://github.com/aqjshi/voxel-transformer-model.git
 cd voxel-transformer-model
 pip install -r requirements.txt
 ```
