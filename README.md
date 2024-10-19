@@ -9,7 +9,8 @@ This repository implements a deep learning model using transformers for voxel da
 - Visualize model predictions and confusion matrix.
 
 ## Directory Structure
-root/
+root/  
+
 ├──train_rs/ # Training data directory  
 
 ├── test_rs/ # Testing data directory  
